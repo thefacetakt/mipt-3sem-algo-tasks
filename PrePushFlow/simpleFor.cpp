@@ -37,10 +37,6 @@ void relabel(long long v) {
 void push(long long v, Edge &e) {
     long long pushValue = min(e.capacity - e.flow, ex[v]);
     ex[v] -= pushValue;
-    if (!ex[v])
-        --extra;
-    if (!ex[e.to])
-        ++extra;
     ex[e.to] += pushValue;
     e.flow += pushValue;
     g[e.to][e.reverse].flow -= pushValue;
@@ -48,7 +44,6 @@ void push(long long v, Edge &e) {
 
 void discharge(long long u) {
     while (ex[u] > 0) {
-//         prlong longf("U: %d\n", u);
         if (goodEdge[u] == g[u].size()) {
             relabel(u);
             goodEdge[u] = 0;
@@ -92,7 +87,7 @@ int main() {
         if (!ex[e.to] && e.capacity)
             ++extra;
         
-        ex[e.to] = e.capacity;
+        ex[e.to] += e.capacity;
     }
     for (long long i = 0; i < n; ++i)
         h[i] = 0;
