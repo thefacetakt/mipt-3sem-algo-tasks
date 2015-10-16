@@ -10,6 +10,12 @@ PrePushFlowSimpleFor::PrePushFlowSimpleFor() {
 }
 
 MaxFlowDescription PrePushFlowSimpleFor::findMaxFlow(unsigned int verticeCount, const std::vector<DirectedEdgeWithStart> &net, unsigned int source, unsigned int sink) {
+    if (source == sink) {
+        MaxFlowDescription result;
+        result.flowValue = ULLONG_MAX;
+        return result;
+    }
+    
     this->edgesCount = net.size();
     this->verticeCount = verticeCount;
     this->source = source;
