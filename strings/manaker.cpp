@@ -6,7 +6,7 @@
 
 const size_t MAXN = 500000;
 char s[MAXN];
-int d[MAXN];
+int radius[MAXN];
 
 int main() {
     
@@ -21,20 +21,20 @@ int main() {
         int left = 0, right = -1;
         for (int i = 0; i < n; ++i) {
             if (i > right) {
-                d[i] = 1 - z;
+                radius[i] = 1 - z;
             } else {
-                d[i] = std::min(d[left + right - i + z], right - i + z);
+                radius[i] = std::min(radius[left + right - i + z], right - i + z);
             }
-            while (d[i] + z <= i && i + d[i] < n && s[i + d[i]] == s[i - d[i] - z]) {
-                ++d[i];
+            while (radius[i] + z <= i && i + radius[i] < n && s[i + radius[i]] == s[i - radius[i] - z]) {
+                ++radius[i];
             }
-            if (i + d[i] - z > right) {
-                left = i - d[i] + (1 - z);
-                right = i + d[i] - 1;
+            if (i + radius[i] - z > right) {
+                left = i - radius[i] + (1 - z);
+                right = i + radius[i] - 1;
             }
-            if (answerRight - answerLeft < i + d[i] - (i - d[i] - z) - 1) {
-                answerLeft = i - d[i] - z + 1;
-                answerRight = i + d[i];
+            if (answerRight - answerLeft < i + radius[i] - (i - radius[i] - z) - 1) {
+                answerLeft = i - radius[i] - z + 1;
+                answerRight = i + radius[i];
             }
         }
     }
