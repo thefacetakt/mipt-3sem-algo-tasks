@@ -7,19 +7,13 @@
 #include <algorithm>
 #include <climits>
 #include <cassert>
+#include "LCA.hpp"
 
 using std::vector;
 using std::make_pair;
 using std::max;
 using std::min;
 using std::pair;
-
-template<class T>
-struct SafeVector: public vector<T> {
-    T& operator[](size_t i) {
-        return this->at(i);
-    }
-};
 
 struct SuffixTree {
     struct Node {
@@ -68,6 +62,8 @@ struct SuffixTree {
     }
     
 };
+
+SuffixTree buildSuffixTree(const vector<int> &);
 
 template<class T, class Compare>
 vector <T> radixSort(const vector <T> &input, Compare comp) {
@@ -132,7 +128,7 @@ void decompressDfs(unsigned int v, vector <unsigned int> &parentsNewChildren,
     compressed.nodes[v].lastIndex = min(compressed.nodes[v].lastIndex * 2, static_cast<unsigned int>(input.size()));
     compressed.nodes[v].indexOfParentEdge *= 2;
     if (compressed.nodes[v].leaf != -1) {
-        compressed.nodes[v].leaf *= 2;
+        compressed.nodes[v].leaf = min(compressed.nodes[v].leaf * 2, static_cast<int>(input.size()));
     }
     
     if (compressed.nodes[v].children.size()) {
@@ -182,7 +178,7 @@ void decompressDfs(unsigned int v, vector <unsigned int> &parentsNewChildren,
         }
     }
     compressed.nodes[v].children = myNewChildren;
-    if (myNewChildren.size() == 1 && v != compressed.root) {
+    if (myNewChildren.size() == 1 && v != compressed.root && compressed.nodes[v].leaf == -1) {
         compressed.deleteNode(v, parentsNewChildren);
     } else {
         parentsNewChildren.push_back(v);
@@ -222,6 +218,127 @@ void buildSuffixArray(SuffixTree &tree, vector <unsigned int> &array, vector <un
     suffixArrayDfs(tree.root, 0, tree, array, lca);
 }
 
+void buildEulerDfs(int v, int &count, int depth, SuffixTree &tree, vector <pair<unsigned int, unsigned int> > &euler, vector <unsigned int> &realNode) {
+    auto &currentNode = tree.nodes[v];
+    realNode.push_back(v);
+    euler.push_back(make_pair(depth, count));
+    int currentCount = count;
+    for (auto const &u: currentNode.children) {
+        buildEulerDfs(u, ++count, depth + 1, tree, euler, realNode);
+        euler.push_back(make_pair(depth, currentCount));
+    }
+}
+
+void buildEuler(SuffixTree &tree, vector <pair<unsigned int, unsigned int> > &euler, vector <unsigned int> &realNode) {
+    int count = 0;
+    buildEulerDfs(tree.root, count, 0, tree, euler, realNode);
+}
+
+SuffixTree buildSuffixTreeFromSA(vector <unsigned int> &sa, vector <unsigned int> &lcp, unsigned int length) {
+    vector <int> tmp;
+    SuffixTree result = buildSuffixTree(tmp);
+    int newNodeIndex = result.newNode();
+    auto &newNode = result.nodes[newNodeIndex];
+    newNode.parent = result.root;
+    newNode.indexOfParentEdge = sa[0];
+    newNode.lastIndex = length;
+    newNode.depth = newNode.lastIndex - newNode.indexOfParentEdge;
+    newNode.leaf = sa[0];
+    result.nodes[result.root].children.push_back(newNodeIndex);
+    unsigned int current = newNodeIndex;
+    for (unsigned int i = 1; i < sa.size(); ++i) {
+        
+        while (result.nodes[current].parent != -1 && result.nodes[result.nodes[current].parent].depth >= lcp[i - 1]) {
+            current = result.nodes[current].parent;
+        }
+        unsigned int parent;
+        if (result.nodes[current].parent != -1 && result.nodes[result.nodes[current].parent].depth == lcp[i - 1]) {
+            parent = result.nodes[current].parent;
+        } else if (result.nodes[current].depth == lcp[i - 1]) {
+            parent = current;
+        } else {
+            parent = result.newNode();
+            auto &parentNode = result.nodes[parent];
+            parentNode.parent = result.nodes[current].parent;
+            parentNode.indexOfParentEdge = result.nodes[current].indexOfParentEdge;
+            parentNode.depth = lcp[i - 1];
+            parentNode.lastIndex = parentNode.depth - result.nodes[parentNode.parent].depth + parentNode.indexOfParentEdge;
+            parentNode.leaf = (length - sa[i] == lcp[i - 1] ? i : -1);
+            result.nodes[result.nodes[current].parent].children.pop_back();
+            result.nodes[result.nodes[current].parent].children.push_back(parent);
+            parentNode.children.push_back(current);
+            result.nodes[current].parent = parent;
+            result.nodes[current].indexOfParentEdge = length - (result.nodes[current].depth - parentNode.depth);
+        }
+        if (lcp[i - 1] != length - sa[i]) {
+            newNodeIndex = result.newNode();
+            result.nodes[parent].children.push_back(newNodeIndex);
+            auto &newNode1 = result.nodes[newNodeIndex];
+            newNode1.parent = parent;
+            newNode1.leaf = i;
+            newNode1.lastIndex = length;
+            newNode1.depth = length - sa[i];
+            newNode1.indexOfParentEdge = sa[i] + lcp[i - 1];
+            parent = newNodeIndex;
+        }
+        current = parent;
+    }
+    return result;
+}
+
+SuffixTree buildOddSuffixTree(SuffixTree &even, const vector <int> &input) {
+    vector <unsigned int> evenSuffix;
+    vector <unsigned int> evenLca;
+    
+    buildSuffixArray(even, evenSuffix, evenLca);
+    vector <pair<unsigned int, unsigned int> > evenEuler;
+    vector <unsigned int> evenRealNode;
+    buildEuler(even, evenEuler, evenRealNode);
+    
+    LCA evenRandomLCA(evenEuler);
+    
+    vector <unsigned int> evenIrrealNode(input.size());
+    for (unsigned int i = 0; i < evenRealNode.size(); ++i) {
+        int leaf = even.nodes[evenRealNode[i]].leaf;
+        if (leaf != -1)
+            evenIrrealNode[leaf] = i;
+    }
+
+    vector <unsigned int> antiSuffixArray(input.size());
+    for (unsigned int i = 0; i < evenSuffix.size(); ++i) {
+        antiSuffixArray[evenSuffix[i]] = i;
+    }
+    vector <unsigned int> oddSuffix;
+    for (unsigned int i = 1; i < input.size(); i += 2) {
+        oddSuffix.push_back(i);
+    }
+    
+    oddSuffix = radixSort(radixSort(oddSuffix, [&input, &antiSuffixArray] (unsigned int i) -> int {
+        return (i + 1 == input.size() ? -1 : antiSuffixArray[i + 1]);
+    }), [&input] (unsigned int i) -> unsigned int {
+        return input[i];
+    });
+    
+    vector <unsigned int> oddLca(oddSuffix.size() - 1);
+    for (unsigned int i = 0; i + 1 < oddSuffix.size(); ++i) {
+        if (input[oddSuffix[i]] == input[oddSuffix[i + 1]]) {
+            if (oddSuffix[i + 1] + 1 == input.size() || oddSuffix[i] + 1 == input.size()) {
+                oddLca[i] = 1;
+            } else {
+                oddLca[i] = even.nodes[evenRealNode[evenRandomLCA.lca(evenIrrealNode[oddSuffix[i] + 1], evenIrrealNode[oddSuffix[i + 1] + 1])]].depth + 1;
+            }
+        } else {
+            oddLca[i] = 0;
+        }
+    }
+    for (int i = 0; i < oddSuffix.size(); ++i) {
+        for (int j = oddSuffix[i]; j < input.size(); ++j) {
+            printf("%d ", input[j]);
+        }
+        printf("| %d\n", (i == oddLca.size() ? -1 : oddLca[i]));
+    }
+    return buildSuffixTreeFromSA(oddSuffix, oddLca, input.size());
+}
 
 SuffixTree buildSuffixTree(const vector <int> &input) {
     if (input.size() == 0) {
@@ -262,36 +379,34 @@ SuffixTree buildSuffixTree(const vector <int> &input) {
     }
     printf("\n");
     SuffixTree compressed = buildSuffixTree(pairedString);
-    
+    compressed.nodes[compressed.root].leaf = -1;
     decompress(compressed, input);
     
     SuffixTree &even = compressed;
+    SuffixTree &odd = buildOddSuffixTree(even, input);
+     
+//     
+//     vector <unsigned int> evenSuffix;
+//     vector <unsigned int> evenLca;
+//     
+//     buildSuffixArray(even, evenSuffix, evenLca);
+//     vector <pair<unsigned int, unsigned int> > evenEuler;
+//     vector <unsigned int> evenRealNode;
+//     buildEuler(tree, evenEuler, evenRealNode);
+//     LCA evenRandomLCA(evenEuler);
+//     vector <unsigned int> evenIrrealNode(input.size());
+//     for (unsigned int i = 0; i < evenReadNode.size(); ++i) {
+//         int leaf = even.nodes[evenReadNode[i]];
+//         if (leaf != -1)
+//             evenIrrealNode[leaf] = i;
+//     }
+//     for (int i = 0; i < evenIrrealNode.size(); ++i) {
+//         printf("%d ", evenIrrealNode[i]);
+//     }
+//     printf("\n");
+    return SuffixTree();
     
-    vector <unsigned int> evenSuffix;
-    vector <unsigned int> evenLca;
-    buildSuffixArray(even, evenSuffix, evenLca);
-    
-    vector <unsigned int> antiSuffixArray(input.size());
-    for (unsigned int i = 0; i < evenSuffix.size(); ++i) {
-        antiSuffixArray[evenSuffix[i]] = i;
-    }
-    vector <unsigned int> oddSuffix;
-    for (unsigned int i = 1; i < input.size(); i += 2) {
-        oddSuffix.push_back(i);
-    }
-    
-    radixSort(radixSort(oddSuffix, [] (unsigned int i) -> unsigned int {
-        return input[i];
-    }), [] (unsigned int i) -> int {
-        return (i + 1 == input.size() ? -2 : antiSuffixArray[i + 1]);
-    });
-    
-    vector <unsigned int> oddLca(oddSuffix.size() - 1);
-    for (unsigned int i = 0; i + 1 < oddSuffix.size(); ++i) {
-        if (input[oddSuffix[i]] == input[oddSuffix[i + 1]) {
-            
-        }
-    }
+
     
     return SuffixTree();
 }
@@ -309,7 +424,7 @@ void dfs_(SuffixTree &tree, int v, int count) {
 
 void sample_() {
     SuffixTree sample;
-    sample.nodes[sample.root].leaf = 6;
+    sample.nodes[sample.root].leaf = -1;
     int newNode = sample.newNode();
     sample.nodes[newNode].parent = sample.root;
     sample.nodes[newNode].indexOfParentEdge = 1;
@@ -379,19 +494,26 @@ void sample_() {
     depthDfs(sample.root, sample);
     
     decompress(sample, input);
+    
     dfs_(sample, sample.root, 0);
     
-    vector <unsigned int> evenSuffixArray;
-    vector <unsigned int> evenLcaArray;
-    buildSuffixArray(sample, evenSuffixArray, evenLcaArray);
+    
+    SuffixTree &even = sample;
+    SuffixTree odd = buildOddSuffixTree(even, input);
+    dfs_(odd, odd.root, 0);
     
     
-    for (int i = 0; i < evenSuffixArray.size(); ++i) {
-        for (int j = evenSuffixArray[i]; j < input.size(); ++j) {
-            printf("%d ", input[j]);
-        }
-        printf(": %d\n", (i < evenLcaArray.size() ? evenLcaArray[i] : -1));
-    }
+//     vector <unsigned int> evenSuffixArray;
+//     vector <unsigned int> evenLcaArray;
+//     buildSuffixArray(sample, evenSuffixArray, evenLcaArray);
+//     
+//     
+//     for (int i = 0; i < evenSuffixArray.size(); ++i) {
+//         for (int j = evenSuffixArray[i]; j < input.size(); ++j) {
+//             printf("%d ", input[j]);
+//         }
+//         printf(": %d\n", (i < evenLcaArray.size() ? evenLcaArray[i] : -1));
+//     }
 }
 
 
