@@ -26,6 +26,7 @@ struct SuffixTree {
         int parent;
         unsigned int lastIndex;
         unsigned int indexOfParentEdge;
+        unsigned int depth;
         int leaf;
         vector <unsigned int> children;
     };
@@ -43,6 +44,7 @@ struct SuffixTree {
         rootNode.lastIndex = 0;
         rootNode.indexOfParentEdge = 0;
         rootNode.leaf = 0;
+        rootNode.depth = 0;
     }
     
     void deleteNode(unsigned int index, vector <unsigned int> &newParentsChildren) {
@@ -99,6 +101,24 @@ struct NumberedPair {
     }
 };
 
+int firstElementOfNumberedPair(const NumberedPair &x) {
+   return x.elements.first;
+}
+
+int secondElementOfNumberedPair(const NumberedPair &x) {
+    return x.elements.second;
+}
+
+void depthDfs(unsigned int v, SuffixTree &tree) {
+    auto &currentNode = tree.nodes[v];
+    if (v != tree.root) {
+        currentNode.depth = tree.nodes[currentNode.parent].depth + currentNode.lastIndex - currentNode.indexOfParentEdge;
+    }
+    for (auto const &u: currentNode.children) {
+        depthDfs(u, tree);
+    }
+}
+
 void decompressDfs(unsigned int v, vector <unsigned int> &parentsNewChildren,
                    SuffixTree &compressed, const vector <int> &input) {
     vector <unsigned int> myNewChildren;
@@ -148,6 +168,7 @@ void decompressDfs(unsigned int v, vector <unsigned int> &parentsNewChildren,
                 }
                 if (newNode.children.size() && compressed.nodes[newNode.children[0]].lastIndex 
                     == compressed.nodes[newNode.children[0]].indexOfParentEdge) {
+                    newNode.leaf = compressed.nodes[newNode.children[0]].leaf;
                     newNode.children = vector<unsigned int>(newNode.children.begin() + 1, newNode.children.end());
                 }
                 myNewChildren.push_back(newNodeIndex);
@@ -172,7 +193,35 @@ void decompress(SuffixTree &compressed, const vector <int> &input) {
     vector <unsigned int> tmp;
     decompressDfs(compressed.root, tmp, compressed, input);
     assert(tmp.size() == 1 && tmp[0] == compressed.root);
+    depthDfs(compressed.root, compressed);
 }
+
+bool suffixArrayDfs(unsigned int v, unsigned int currentLca,
+                    SuffixTree &tree, vector <unsigned int> &array, vector <unsigned int> &lca) {
+    auto &currentNode = tree.nodes[v];
+    bool returnValue = false;
+    if (currentNode.leaf != -1) {
+        if (array.size()) {
+            lca.push_back(currentLca);
+        }
+        array.push_back(currentNode.leaf);
+        currentLca = currentNode.depth;
+        returnValue = true;
+    }
+    
+    for (auto const &u: currentNode.children) {
+        if (suffixArrayDfs(u, currentLca, tree, array, lca)) {
+            currentLca = currentNode.depth;
+            returnValue = true;
+        }
+    }
+    return returnValue;
+}
+
+void buildSuffixArray(SuffixTree &tree, vector <unsigned int> &array, vector <unsigned int> &lca) {
+    suffixArrayDfs(tree.root, 0, tree, array, lca);
+}
+
 
 SuffixTree buildSuffixTree(const vector <int> &input) {
     if (input.size() == 0) {
@@ -199,11 +248,7 @@ SuffixTree buildSuffixTree(const vector <int> &input) {
             )
         );        
     }
-    consequentPairs = radixSort(radixSort(consequentPairs, [] (const NumberedPair &x) -> int {
-        return x.elements.second;
-    }), [] (const NumberedPair &x) -> int {
-        return x.elements.first;
-    });
+    consequentPairs = radixSort(radixSort(consequentPairs, secondElementOfNumberedPair), firstElementOfNumberedPair);
     vector <int> pairedString((input.size() + 1) / 2);
     unsigned int currentNumber = 0;
     for (unsigned int i = 0; i < consequentPairs.size(); ++i) {
@@ -220,6 +265,34 @@ SuffixTree buildSuffixTree(const vector <int> &input) {
     
     decompress(compressed, input);
     
+    SuffixTree &even = compressed;
+    
+    vector <unsigned int> evenSuffix;
+    vector <unsigned int> evenLca;
+    buildSuffixArray(even, evenSuffix, evenLca);
+    
+    vector <unsigned int> antiSuffixArray(input.size());
+    for (unsigned int i = 0; i < evenSuffix.size(); ++i) {
+        antiSuffixArray[evenSuffix[i]] = i;
+    }
+    vector <unsigned int> oddSuffix;
+    for (unsigned int i = 1; i < input.size(); i += 2) {
+        oddSuffix.push_back(i);
+    }
+    
+    radixSort(radixSort(oddSuffix, [] (unsigned int i) -> unsigned int {
+        return input[i];
+    }), [] (unsigned int i) -> int {
+        return (i + 1 == input.size() ? -2 : antiSuffixArray[i + 1]);
+    });
+    
+    vector <unsigned int> oddLca(oddSuffix.size() - 1);
+    for (unsigned int i = 0; i + 1 < oddSuffix.size(); ++i) {
+        if (input[oddSuffix[i]] == input[oddSuffix[i + 1]) {
+            
+        }
+    }
+    
     return SuffixTree();
 }
 
@@ -228,7 +301,7 @@ void dfs_(SuffixTree &tree, int v, int count) {
     for (int i = 0; i < count; ++i) {
         printf("-");
     }
-    printf(" %d: %d %d %d %d\n", v, tree.nodes[v].parent, tree.nodes[v].indexOfParentEdge, tree.nodes[v].lastIndex, tree.nodes[v].leaf);
+    printf(" %d: %d %d %d %d %d\n", v, tree.nodes[v].parent, tree.nodes[v].indexOfParentEdge, tree.nodes[v].lastIndex, tree.nodes[v].leaf, tree.nodes[v].depth);
     for (auto const &u: tree.nodes[v].children) {
         dfs_(tree, u, count + 1);
     }
@@ -302,13 +375,29 @@ void sample_() {
     input.push_back(2);
     input.push_back(2);
     input.push_back(2);
+    
+    depthDfs(sample.root, sample);
+    
     decompress(sample, input);
     dfs_(sample, sample.root, 0);
+    
+    vector <unsigned int> evenSuffixArray;
+    vector <unsigned int> evenLcaArray;
+    buildSuffixArray(sample, evenSuffixArray, evenLcaArray);
+    
+    
+    for (int i = 0; i < evenSuffixArray.size(); ++i) {
+        for (int j = evenSuffixArray[i]; j < input.size(); ++j) {
+            printf("%d ", input[j]);
+        }
+        printf(": %d\n", (i < evenLcaArray.size() ? evenLcaArray[i] : -1));
+    }
 }
 
 
 int main() {
     sample_();
+    return 0;
     int n;
     scanf("%d", &n);
     vector <int> x(n);
