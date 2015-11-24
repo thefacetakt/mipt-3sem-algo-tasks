@@ -61,6 +61,30 @@ struct SuffixTree {
         return nodes.size() - 1;
     }
     
+    
+    unsigned int lengthOfEdge(unsigned int index) {
+        if (nodes[index].parent == -1) {
+            return 0;
+        } else {
+            return nodes[index].depth - nodes[nodes[index].parent].depth;
+        }
+    }
+    
+    unsigned int splitEdge(unsigned int parent, unsigned int indexOfChild, unsigned int length) {
+        unsigned int child = nodes[parent].children[indexOfChild];
+        unsigned int newNodeIndex = newNode();
+        Node &newNode = nodes[newNodeIndex];
+        newNode.parent = parent;
+        newNode.leaf = -1;
+        newNode.indexOfParentEdge = nodes[child].indexOfParentEdge;
+        newNode.lastIndex = newNode.indexOfParentEdge + length;
+        newNode.depth = nodes[parent].depth + length;
+        nodes[child].indexOfParentEdge = newNode.lastIndex;
+        nodes[child].parent = newNodeIndex;
+        newNode.children.push_back(child);
+        nodes[parent].children[indexOfChild] = newNodeIndex;
+        return newNodeIndex;
+    }
 };
 
 SuffixTree buildSuffixTree(const vector<int> &);
@@ -340,6 +364,85 @@ SuffixTree buildOddSuffixTree(SuffixTree &even, const vector <int> &input) {
     return buildSuffixTreeFromSA(oddSuffix, oddLca, input.size());
 }
 
+inline void copyNodeExceptParentAndChildren(const SuffixTree::Node &from,SuffixTree::Node &to) {
+    to.lastIndex = from.lastIndex;
+    to.depth = from.depth;
+    to.indexOfParentEdge = from.indexOfParentEdge;
+    to.leaf = from.leaf;
+}
+
+void copySubTree(const SuffixTree &from, SuffixTree &to, unsigned int fromStart, unsigned int toStart);
+
+unsigned int appendCopyNode(const SuffixTree &from, SuffixTree &to, unsigned int toStart, unsigned int u) {
+    unsigned int newStart = to.newNode();
+    to.nodes[newStart].parent = toStart;
+    to.nodes[toStart].children.push_back(newStart);
+    copyNodeExceptParentAndChildren(from.nodes[u], to.nodes[newStart]);
+    copySubTree(from, to, u, newStart);
+    return newStart;
+}
+
+void copySubTree(const SuffixTree &from, SuffixTree &to, unsigned int fromStart, unsigned int toStart) {
+    for (auto const &u: from.nodes[fromStart].children) {
+        appendCopyNode(from, to, toStart, u);
+    }
+}
+
+void mergeNodes(unsigned int first, unsigned int second, unsigned int to,
+    SuffixTree &result, SuffixTree &tree1, SuffixTree &tree2, const vector <int> &input) {
+    unsigned int firstIndex = 0;
+    unsigned int secondIndex = 0;
+    for (; firstIndex < tree1.nodes[first].children.size() && secondIndex < tree2.nodes[second].children.size();) {
+        unsigned int firstChild = tree1.nodes[first].children[firstIndex];
+        unsigned int secondChild = tree2.nodes[second].children[secondIndex];
+        int firstChar = input[tree1.nodes[firstChild].indexOfParentEdge];
+        int secondChar = input[tree2.nodes[secondChild].indexOfParentEdge];
+        if (firstChar < secondChar) {
+            appendCopyNode(tree1, result, to, firstChild);
+            ++firstIndex;
+            continue;
+        } else if (firstChar > secondChar) {
+            appendCopyNode(tree2, result, to, secondChild);
+            ++secondIndex;
+            continue;
+        } else {
+            int firstLength = tree1.lengthOfEdge(firstChild);
+            int secondLength = tree2.lengthOfEdge(secondChild);
+            
+            if (firstLength < secondLength) {
+                secondChild = tree2.splitEdge(second, secondIndex, firstLength);
+            } else if (firstLength > secondLength) {
+                firstChild = tree1.splitEdge(first, firstIndex, secondLength);
+            }
+            unsigned int newNodeIndex = result.newNode();
+            auto &newNode = result.nodes[newNodeIndex];
+            newNode.parent = to;
+            result.nodes[to].children.push_back(newNodeIndex);
+            newNode.leaf = -2;
+            newNode.depth = min(firstLength, secondLength);
+            newNode.indexOfParentEdge = firstChild;
+            newNode.lastIndex = secondChild;
+            mergeNodes(firstChild, secondChild, newNodeIndex, result, tree1, tree2, input);
+            ++firstIndex;
+            ++secondIndex;
+            continue;
+        }
+    }
+    for (; firstIndex < tree1.nodes[first].children.size(); ++firstIndex) {
+        appendCopyNode(tree1, result, to, tree1.nodes[first].children[firstIndex]);
+    }
+    for (; secondIndex < tree2.nodes[second].children.size(); ++secondIndex) {
+        appendCopyNode(tree2, result, to, tree2.nodes[second].children[secondIndex]);
+    }
+}
+
+SuffixTree mergeTrees(SuffixTree &tree1, SuffixTree &tree2, const vector <int> &input) {
+    vector <int> tmp;
+    SuffixTree result = buildSuffixTree(tmp);
+    mergeNodes(tree1.root, tree2.root, result.root, result, tree1, tree2, input);
+    return result;
+}
+
 SuffixTree buildSuffixTree(const vector <int> &input) {
     if (input.size() == 0) {
         return SuffixTree();
@@ -383,7 +486,7 @@ SuffixTree buildSuffixTree(const vector <int> &input) {
     decompress(compressed, input);
     
     SuffixTree &even = compressed;
-    SuffixTree &odd = buildOddSuffixTree(even, input);
+    SuffixTree odd = buildOddSuffixTree(even, input);
      
 //     
 //     vector <unsigned int> evenSuffix;
@@ -501,6 +604,11 @@ void sample_() {
     SuffixTree &even = sample;
     SuffixTree odd = buildOddSuffixTree(even, input);
     dfs_(odd, odd.root, 0);
+    
+    SuffixTree merged = mergeTrees(even, odd, input);
+    dfs_(even, even.root, 0);
+    dfs_(odd, odd.root, 0);
+    dfs_(merged, merged.root, 0);
     
     
 //     vector <unsigned int> evenSuffixArray;

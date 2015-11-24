@@ -36,3 +36,14 @@ LCA::LCA(const vector<pair<unsigned int, unsigned int> > &euler) {
 unsigned int LCA::lca(unsigned int u, unsigned int v) {
     return myEuler[rmq.minimum(min(first[u], first[v]), max(last[u], last[v]))];
 }
+
+vector <pair<unsigned int, unsigned int> > euler;
+vector <vector<int> > t;
+
+void dfs(int v, int d) {
+    euler.push_back(make_pair(d, v));
+    for (auto const &u: t[v]) {
+        dfs(u, d + 1);
+        euler.push_back(make_pair(d, v));
+    }
+}
