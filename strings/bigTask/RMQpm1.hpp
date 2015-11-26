@@ -94,6 +94,9 @@ unsigned int RMQpm1::minimum(unsigned int i, unsigned int j) {
     if (j < i) {
         return UINT_MAX;
     }
+    if (i == j) {
+        return i;
+    }
     unsigned int iBlock = i / block;
     unsigned int jBlock = j / block;
     if (iBlock != jBlock) {
