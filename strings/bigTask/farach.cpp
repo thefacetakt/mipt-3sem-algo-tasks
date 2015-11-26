@@ -581,7 +581,7 @@ SuffixTree buildSuffixTreeFromSA(vector <unsigned int> &sa, vector <unsigned int
             result.nodes[result.nodes[current].parent].children.push_back(parent);
             parentNode.children.push_back(current);
             result.nodes[current].parent = parent;
-            result.nodes[current].indexOfParentEdge = length - (result.nodes[current].depth - parentNode.depth);
+            result.nodes[current].indexOfParentEdge += parentNode.depth - result.nodes[parentNode.parent].depth; // length - (result.nodes[current].depth - parentNode.depth);
         }
         if (lcp[i - 1] != length - sa[i]) {
             newNodeIndex = result.newNode();
@@ -645,10 +645,18 @@ SuffixTree buildOddSuffixTree(SuffixTree &even, const vector <int> &input) {
         }
     }
 //     for (int i = 0; i < oddSuffix.size(); ++i) {
-//         for (int j = oddSuffix[i]; j < input.size(); ++j) {
-//             printf("%d ", input[j]);
+//         if (i + 1 != oddSuffix.size()) {
+//             assert(vector<int>(input.begin() + oddSuffix[i], input.begin() + oddSuffix[i] + oddLca[i])
+//                     == vector<int>(input.begin() + oddSuffix[i + 1], input.begin() + oddSuffix[i + 1] + oddLca[i])
+//                     &&
+//                     (oddSuffix[i] + oddLca[i] == input.size() || oddSuffix[i + 1] + oddLca[i] == input.size() || 
+//                 vector<int>(input.begin() + oddSuffix[i], input.begin() + oddSuffix[i] + oddLca[i] + 1)
+//                 != vector<int>(input.begin() + oddSuffix[i + 1], input.begin() + oddSuffix[i + 1] + oddLca[i] + 1)));
 //         }
-//         printf("| %d\n", (i == oddLca.size() ? -1 : oddLca[i]));
+// //         for (int j = oddSuffix[i]; j < input.size(); ++j) {
+// //             printf("%d ", input[j]);
+// //         }
+// //         printf("| %d\n", (i == oddLca.size() ? -1 : oddLca[i]));
 //     }
     return buildSuffixTreeFromSA(oddSuffix, oddLca, input.size());
 }
@@ -919,6 +927,7 @@ void dfs_(SuffixTree &tree, int v, int count, const vector<int> &input) {
 //     printf(", %d\"]\n", tree.nodes[v].leaf);
     
     assert(tree.nodes[v].indexOfParentEdge < tree.nodes[v].lastIndex || tree.nodes[v].parent == -1);
+    assert(tree.nodes[v].parent == -1 || tree.nodes[v].depth > tree.nodes[tree.nodes[v].parent].depth);
     for (auto const &u: tree.nodes[v].children) {
         dfs_(tree, u, count + 1, input);
     }
@@ -936,6 +945,7 @@ SuffixTree buildSuffixTree(const vector <int> &input) {
         newNode.parent = result.root;
         newNode.lastIndex = 1;
         newNode.indexOfParentEdge = 0;
+        newNode.depth = 1;
         newNode.leaf = 0;
         result.nodes[result.root].children.push_back(newNodeIndex);
         result.nodes[result.root].leaf = 1;
@@ -969,17 +979,17 @@ SuffixTree buildSuffixTree(const vector <int> &input) {
     depthDfs(compressed.root, compressed);
     SuffixTree &even = compressed;
 //     printf("EVEN:\n");
-//     dfs_(even, even.root, 0, input);
+    dfs_(even, even.root, 0, input);
     SuffixTree odd = buildOddSuffixTree(even, input);
 //     printf("ODD:\n");
-//     dfs_(odd, odd.root, 0, input);
+    dfs_(odd, odd.root, 0, input);
     SuffixTree almostResult = mergeTrees(even, odd, input);
 //     printf("ALMOST:\n");
-//     dfs_(almostResult, almostResult.root, 0, input);
+    dfs_(almostResult, almostResult.root, 0, input);
     cleanTreeDfs(almostResult.root, -1, almostResult);
     almostResult.nodes[almostResult.root].leaf = input.size();
 //     printf("RESL\n");
-//     dfs_(almostResult, almostResult.root, 0, input);
+    dfs_(almostResult, almostResult.root, 0, input);
     return almostResult;
 }
 
@@ -1113,6 +1123,7 @@ int main() {
     
     int n = s.size();
     vector <int> x(n);
+//     printf("%d\n", n);
     for (int i = 0; i < n; ++i)
         x[i] = s[i] - 'a';
     SuffixTree y = buildSuffixTree(x);
