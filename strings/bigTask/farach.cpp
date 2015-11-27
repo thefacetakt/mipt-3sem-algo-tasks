@@ -10,7 +10,7 @@
 #include <cassert>
 #include <functional>
 #include <string>
-// #include "LCA.hpp"
+#include "LCA.hpp"
 
 using std::vector;
 using std::make_pair;
@@ -22,257 +22,6 @@ using std::swap;
 
 #define firstHiddenInfo indexOfParentEdge
 #define secondHiddenInfo lastIndex
-
-#ifndef _SPARSE_TABLE
-#define _SPARSE_TABLE
-
-
-#include <vector>
-#include <algorithm>
-#include <climits>
-#include <utility>
-
-using std::vector;
-using std::min;
-using std::pair;
-using std::make_pair;
-
-struct SparseTable {
-private:
-    vector<vector<pair<unsigned int, unsigned int> > > st;
-    vector<unsigned int> fastLog;
-    unsigned int n;
-    
-    void init();
-     
-public:
-    SparseTable(const vector<unsigned int> &elements);
-    SparseTable();
-    
-    unsigned int minimum(unsigned int i, unsigned int j);
-    
-    pair<unsigned int, unsigned int> operator[](unsigned int i) {
-        return st[0][i];
-    }
-};
-
-SparseTable::SparseTable() {
-}
-    
-SparseTable::SparseTable(const vector<unsigned int> &elements) {
-    n = elements.size();
-    fastLog.resize(n + 1);
-    fastLog[1] = 0;
-    for (unsigned int i = 2; i <= n; ++i) {
-        fastLog[i] = fastLog[i / 2] + 1;
-    }
-    st.resize(fastLog[n] + 1);
-    st[0].resize(n);
-    for (unsigned int i = 0; i < n; ++i) {
-        st[0][i] = make_pair(elements[i], i);
-    }
-    init();
-}
-
-void SparseTable::init() {
-    for (unsigned int k = 1; k <= fastLog[n]; ++k) {
-        st[k].resize(n - (1 << k) + 1);
-        for (unsigned int i = 0; i < st[k].size(); ++i) {
-            st[k][i] = min(st[k - 1][i], st[k - 1][i + (1 << (k - 1))]);
-        }
-    }
-}
-
-unsigned int SparseTable::minimum(unsigned int i, unsigned int j) {
-    if (j < i) {
-        return UINT_MAX;
-    }
-    unsigned int length = (j - i + 1);
-    return min(st[fastLog[length]][i], st[fastLog[length]][j - (1 << fastLog[length]) + 1]).second;
-}
-
-#endif
-
-#ifndef _RMQpm1
-#define _RMQpm1
-
-#include <vector>
-#include <algorithm>
-#include <utility>
-#include <climits>
-#include <cstdio>
-// #include "sparseTable.hpp"
-
-using std::vector;
-using std::max;
-using std::min;
-using std::pair;
-using std::make_pair;
-
-struct RMQpm1 {
-private:
-    SparseTable st;
-    vector <unsigned int> elements;
-    vector <vector <pair<unsigned int, unsigned int> > > prefixMins;
-    vector <vector <pair<unsigned int, unsigned int> > > suffixMins;
-    unsigned int n;
-    unsigned int block;
-    vector <vector<vector<pair<int, unsigned int> > > > dp;
-    vector <unsigned int> type;
-    
-public:
-    RMQpm1();
-    RMQpm1(const vector<unsigned int> &elements);
-    
-    unsigned int minimum(unsigned int i, unsigned int j);
-};
-
-
-RMQpm1::RMQpm1() {
-}
-
-RMQpm1::RMQpm1(const vector<unsigned int> &elements) {
-    this->elements = elements;
-    n = elements.size();
-    for (block = 1; (1 << block) <= n; ++block) {
-    }
-    block = max(block / 2, 1u);
-    vector <vector <unsigned int> > decomposition;
-    vector <unsigned int> stElements;
-    for (unsigned int i = 0; i < n; i += block) {
-        decomposition.push_back(vector<unsigned int>(block, 0));
-        prefixMins.push_back(vector <pair<unsigned int, unsigned int> >(block));
-        suffixMins.push_back(vector <pair<unsigned int, unsigned int> >(block));
-        
-        unsigned int currentMask = 0;
-        
-        for (unsigned int j = 0; j < block; ++j) {
-            if (i + j < n) {
-                decomposition.back()[j] = elements[i + j];
-            }
-            if (j > 1 && decomposition.back()[j] > decomposition.back()[j - 1]) {
-                currentMask |= (1 << j);
-            }
-        }
-        currentMask >>= 1;
-        type.push_back(currentMask);
-        
-        prefixMins.back()[0] = make_pair(decomposition.back()[0], i + 0);
-        suffixMins.back()[block - 1] = make_pair(decomposition.back()[block - 1], i + block - 1);
-        for (unsigned int j = 1; j < block; ++j) {
-            prefixMins.back()[j] = min(prefixMins.back()[j - 1], make_pair(decomposition.back()[j], i + j));
-            suffixMins.back()[block - j - 1] = min(suffixMins.back()[block - j], make_pair(decomposition.back()[block - j - 1], i + block - j - 1));
-        }
-        stElements.push_back(prefixMins.back().back().first);
-    }
-    st = SparseTable(stElements);
-
-    dp.resize(1 << (block - 1));
-    
-    for (unsigned int i = 0; i < (1 << (block - 1)); ++i) {
-        dp[i].resize(block);
-        for (unsigned int length = 1; length <= block; ++length) {
-            dp[i][length - 1].resize(block - length + 2);
-            if (length == 1) {
-                for (unsigned int j = 0; j < block; ++j) {
-                    dp[i][length - 1][j] = make_pair((j == 0 ? 0 : dp[i][length - 1][j - 1].first + 2 * ((i >> (j - 1)) & 1) - 1), j);
-                }
-            } else {
-                for (unsigned int j = length - 2; j < block; ++j) {
-                    dp[i][length - 1][j - (length - 2)] = min(dp[i][0][j], dp[i][length - 2][j - (length - 2)]);
-                }
-            }
-        }
-    }
-}
-    
-unsigned int RMQpm1::minimum(unsigned int i, unsigned int j) {
-    if (j < i) {
-        return UINT_MAX;
-    }
-    if (i == j) {
-        return i;
-    }
-    unsigned int iBlock = i / block;
-    unsigned int jBlock = j / block;
-    if (iBlock != jBlock) {
-        pair<unsigned int, unsigned int> prefSufMin = min(suffixMins[iBlock][i % block], prefixMins[jBlock][j % block]);
-        if (iBlock + 1 > jBlock - 1) {
-            return prefSufMin.second;
-        } else {
-            unsigned int insideMinPos = st.minimum(iBlock + 1, jBlock - 1);
-            if (st[insideMinPos].first < prefSufMin.first) {
-                return prefixMins[insideMinPos][block - 1].second;
-            } else {
-                return prefSufMin.second;
-            }
-        }
-    } else {
-        return iBlock * block + dp[type[iBlock]][j - i][i % block].second;
-    }
-}
-
-#endif
-
-#ifndef _LCA
-#define _LCA
-
-#include <vector>
-#include <algorithm>
-#include <utility>
-#include <climits>
-#include <cstdio>
-// #include "sparseTable.hpp"
-// #include "RMQpm1.hpp"
-
-using std::vector;
-using std::max;
-using std::min;
-using std::pair;
-using std::make_pair;
-
-struct LCA {
-private:
-    vector <unsigned int> myEuler;
-    vector <unsigned int> first;
-    vector <unsigned int> last;
-    
-    RMQpm1 rmq;
-    
-public:
-    
-    LCA(const vector<pair<unsigned int, unsigned int> > &euler);
-    
-    
-    unsigned int lca(unsigned int u, unsigned int v);
-};
-    
-LCA::LCA(const vector<pair<unsigned int, unsigned int> > &euler) {
-    unsigned int n = (euler.size() + 1) / 2;
-    vector <unsigned int> toRMQ(euler.size());
-    myEuler.resize(euler.size());
-    first.assign(n, -1);
-    last.assign(n, -1);
-    for (unsigned int i = 0; i < euler.size(); ++i) {
-        if (first[euler[i].second] == -1) {
-            first[euler[i].second] = i;
-        }
-        last[euler[i].second] = i;
-        toRMQ[i] = euler[i].first;
-        myEuler[i] = euler[i].second;
-    }
-    
-    
-    rmq = RMQpm1(toRMQ);
-}
-
-
-unsigned int LCA::lca(unsigned int u, unsigned int v) {
-    return myEuler[rmq.minimum(min(first[u], first[v]), max(last[u], last[v]))];
-}
-
-
-#endif
 
 
 struct SuffixTree {
@@ -310,7 +59,6 @@ struct SuffixTree {
         assert(node.children.size() == 1);
         for (auto const &u: node.children) {
             nodes[u].parent = node.parent;
-//             nodes[u].indexOfParentEdge = node.indexOfParentEdge;
             nodes[u].indexOfParentEdge = leaf + nodes[node.parent].depth;
             nodes[u].lastIndex = leaf + nodes[u].depth;
 #ifdef _GLIBCXX_DEBUG
@@ -445,7 +193,6 @@ int decompressDfs(unsigned int v, vector <unsigned int> &parentsNewChildren,
         int newLeaf = decompressDfs(u, myNewChildren, compressed, input, min(static_cast<unsigned int>(input.size()), 
                                     depth + (compressed.nodes[u].lastIndex - compressed.nodes[u].indexOfParentEdge) * 2 
                                     - (compressed.nodes[u].lastIndex == input.size() / 2 + 1))); 
-        //(compressed.nodes[v].indexOfParentEdge * 2 + 1 == input.size() ? 1 : 2));
         if (leaf == -1) {
             leaf = newLeaf;
         }
@@ -605,7 +352,7 @@ SuffixTree buildSuffixTreeFromSA(vector <unsigned int> &sa, vector <unsigned int
             result.nodes[result.nodes[current].parent].children.push_back(parent);
             parentNode.children.push_back(current);
             result.nodes[current].parent = parent;
-            result.nodes[current].indexOfParentEdge += parentNode.depth - result.nodes[parentNode.parent].depth; // length - (result.nodes[current].depth - parentNode.depth);
+            result.nodes[current].indexOfParentEdge += parentNode.depth - result.nodes[parentNode.parent].depth;
         }
         if (lcp[i - 1] != length - sa[i]) {
             newNodeIndex = result.newNode();
@@ -668,20 +415,22 @@ SuffixTree buildOddSuffixTree(SuffixTree &even, const vector <int> &input) {
             oddLca[i] = 0;
         }
     }
-//     for (int i = 0; i < oddSuffix.size(); ++i) {
-//         if (i + 1 != oddSuffix.size()) {
-//             assert(vector<int>(input.begin() + oddSuffix[i], input.begin() + oddSuffix[i] + oddLca[i])
-//                     == vector<int>(input.begin() + oddSuffix[i + 1], input.begin() + oddSuffix[i + 1] + oddLca[i])
-//                     &&
-//                     (oddSuffix[i] + oddLca[i] == input.size() || oddSuffix[i + 1] + oddLca[i] == input.size() || 
-//                 vector<int>(input.begin() + oddSuffix[i], input.begin() + oddSuffix[i] + oddLca[i] + 1)
-//                 != vector<int>(input.begin() + oddSuffix[i + 1], input.begin() + oddSuffix[i + 1] + oddLca[i] + 1)));
-//         }
-// //         for (int j = oddSuffix[i]; j < input.size(); ++j) {
-// //             printf("%d ", input[j]);
-// //         }
-// //         printf("| %d\n", (i == oddLca.size() ? -1 : oddLca[i]));
-//     }
+#ifdef _PRINT_DBG
+    for (unsigned int i = 0; i < oddSuffix.size(); ++i) {
+        if (i + 1 != oddSuffix.size()) {
+            assert(vector<int>(input.begin() + oddSuffix[i], input.begin() + oddSuffix[i] + oddLca[i])
+                    == vector<int>(input.begin() + oddSuffix[i + 1], input.begin() + oddSuffix[i + 1] + oddLca[i])
+                    &&
+                    (oddSuffix[i] + oddLca[i] == input.size() || oddSuffix[i + 1] + oddLca[i] == input.size() || 
+                vector<int>(input.begin() + oddSuffix[i], input.begin() + oddSuffix[i] + oddLca[i] + 1)
+                != vector<int>(input.begin() + oddSuffix[i + 1], input.begin() + oddSuffix[i + 1] + oddLca[i] + 1)));
+        }
+        for (unsigned int j = oddSuffix[i]; j < input.size(); ++j) {
+            printf("%d ", input[j]);
+        }
+        printf("| %d\n", (i == oddLca.size() ? -1 : oddLca[i]));
+    }
+#endif
     return buildSuffixTreeFromSA(oddSuffix, oddLca, input.size());
 }
 
@@ -711,13 +460,6 @@ void copySubTree(const SuffixTree &from, SuffixTree &to, unsigned int fromStart,
 
 void mergeNodes(unsigned int first, unsigned int second, unsigned int to,
     SuffixTree &result, SuffixTree &tree1, SuffixTree &tree2, const vector <int> &input) {
-//     if (result.nodes[to].leaf == -1 && tree1.nodes[first].leaf != -1 && tree1.nodes[first].depth == result.nodes[to].depth) {
-//         result.nodes[to].leaf = tree1.nodes[first].leaf;
-//     }
-//     if (result.nodes[to].leaf == -1 && tree2.nodes[second].leaf != -1 && tree2.nodes[second].depth == result.nodes[to].depth) {
-//         result.nodes[to].leaf = tree1.nodes[second].leaf;
-//     }
-//     
     unsigned int firstIndex = 0;
     unsigned int secondIndex = 0;
     for (; firstIndex < tree1.nodes[first].children.size() && secondIndex < tree2.nodes[second].children.size();) {
@@ -860,7 +602,6 @@ void trueLengthFillDfs(unsigned int v, const SuffixTree &merged,
 }
 
 vector <unsigned int> computeTrueLength(const SuffixTree &merged, const SuffixTree &first, const SuffixTree &second,
-//                        vector <unsigned int> &firstSuffixes, vector <unsigned int> &secondSuffixes, 
                        unsigned int inputLength) {
     vector <pair<unsigned int, unsigned int> > euler;
     vector <unsigned int> realNode;
@@ -901,8 +642,6 @@ vector <unsigned int> computeTrueLength(const SuffixTree &merged, const SuffixTr
             trueLengthFillDfs(v, merged, suffixLcaGetter, 
                               superSuffix[v].first,
                               superSuffix[v].second,
-//                               firstSuffixes[merged.nodes[v].firstHiddenInfo], 
-//                               secondSuffixes[merged.nodes[v].secondHiddenInfo],
                               inputLength, output);
         }
         for (auto const &u: merged.nodes[v].children) {
@@ -966,10 +705,6 @@ void dfs__(SuffixTree &tree, int v) {
 
 
 void dfs_(SuffixTree &tree, int v, int count, const vector<int> &input) {
-//     for (int i = 0; i < count; ++i) {
-//         printf("-");
-//     }
-//       printf(" %d: %d %d %d %d %d\n", v, tree.nodes[v].parent, tree.nodes[v].indexOfParentEdge, tree.nodes[v].lastIndex, tree.nodes[v].leaf, tree.nodes[v].depth);
 #ifdef _PRINT_DBG
     printf("%d -> %d [label=\"", tree.nodes[v].parent, v);
     for (int i = tree.nodes[v].indexOfParentEdge; i != tree.nodes[v].lastIndex; ++i) {
@@ -990,15 +725,15 @@ SuffixTree mergeTrees(SuffixTree &tree1, SuffixTree &tree2, const vector <int> &
     SuffixTree merged = buildSuffixTree(tmp);
     merged.nodes[merged.root].leaf = -1;
     mergeNodes(tree1.root, tree2.root, merged.root, merged, tree1, tree2, input);
-//     dfs__(merged, merged.root);
+
 #ifdef _PRINT_DBG
+    dfs__(merged, merged.root);
     printf("NEW TREE1\n");
-#endif
-//     dfs_(tree1, tree1.root, 0, input);
-#ifdef _PRINT_DBG
+    dfs_(tree1, tree1.root, 0, input);
     printf("NEW TREE2\n");
+    dfs_(tree2, tree2.root, 0, input);
 #endif
-//     dfs_(tree2, tree2.root, 0, input);
+
     vector <unsigned int> firstSuffixes = findSuffixes(tree1);
     vector <unsigned int> secondSuffixes = findSuffixes(tree2);
     
@@ -1034,7 +769,6 @@ int cleanTreeDfs(unsigned int v, unsigned int parent, SuffixTree &tree) {
 
 
 SuffixTree buildSuffixTree(const vector <int> &input) {
-//     printf("CALL %d\n", input.size());
     if (input.size() == 0) {
         return SuffixTree();
     }
@@ -1078,143 +812,29 @@ SuffixTree buildSuffixTree(const vector <int> &input) {
     SuffixTree compressed = buildSuffixTree(pairedString);
     compressed.nodes[compressed.root].leaf = -1;
     decompress(compressed, input);
-    //depthDfs(compressed.root, compressed);
     SuffixTree &even = compressed;
 #ifdef _PRINT_DBG
     printf("EVEN:\n");
+    dfs_(even, even.root, 0, input);
 #endif
-//     dfs_(even, even.root, 0, input);
     SuffixTree odd = buildOddSuffixTree(even, input);
 #ifdef _PRINT_DBG
     printf("ODD:\n");
+    dfs_(odd, odd.root, 0, input);
 #endif
-//     dfs_(odd, odd.root, 0, input);
     SuffixTree almostResult = mergeTrees(even, odd, input);
 #ifdef _PRINT_DBG
     printf("ALMOST:\n");
+    dfs_(almostResult, almostResult.root, 0, input);
 #endif
-//     dfs_(almostResult, almostResult.root, 0, input);
     cleanTreeDfs(almostResult.root, -1, almostResult);
     almostResult.nodes[almostResult.root].leaf = input.size();
 #ifdef _PRINT_DBG
     printf("RESL\n");
+    dfs_(almostResult, almostResult.root, 0, input);
 #endif
-//     dfs_(almostResult, almostResult.root, 0, input);
     return almostResult;
 }
-
-
-void sample_() {
-    SuffixTree sample;
-    sample.nodes[sample.root].leaf = -1;
-    int newNode = sample.newNode();
-    sample.nodes[newNode].parent = sample.root;
-    sample.nodes[newNode].indexOfParentEdge = 1;
-    sample.nodes[newNode].lastIndex = 6;
-    sample.nodes[newNode].leaf = 1;
-    sample.nodes[sample.root].children.push_back(newNode);
-    
-    
-    newNode = sample.newNode();
-    sample.nodes[newNode].parent = sample.root;
-    sample.nodes[newNode].indexOfParentEdge = 0;
-    sample.nodes[newNode].lastIndex = 1;
-    sample.nodes[newNode].leaf = -1;
-    sample.nodes[sample.root].children.push_back(newNode);
-    int root = newNode;
-    
-    newNode = sample.newNode();
-    sample.nodes[newNode].parent = root;
-    sample.nodes[newNode].indexOfParentEdge = 1;
-    sample.nodes[newNode].lastIndex = 6;
-    sample.nodes[newNode].leaf = 0;
-    sample.nodes[root].children.push_back(newNode);
-    
-    newNode = sample.newNode();
-    sample.nodes[newNode].parent = root;
-    sample.nodes[newNode].indexOfParentEdge = 3;
-    sample.nodes[newNode].lastIndex = 6;
-    sample.nodes[newNode].leaf = 2;
-    sample.nodes[root].children.push_back(newNode);
-    
-    
-    newNode = sample.newNode();
-    sample.nodes[newNode].parent = sample.root;
-    sample.nodes[newNode].indexOfParentEdge = 5;
-    sample.nodes[newNode].lastIndex = 6;
-    sample.nodes[newNode].leaf = 5;
-    sample.nodes[sample.root].children.push_back(newNode);
-    
-    newNode = sample.newNode();
-    sample.nodes[newNode].parent = sample.root;
-    sample.nodes[newNode].indexOfParentEdge = 3;
-    sample.nodes[newNode].lastIndex = 6;
-    sample.nodes[newNode].leaf = 3;
-    sample.nodes[sample.root].children.push_back(newNode);
-    
-    
-    newNode = sample.newNode();
-    sample.nodes[newNode].parent = sample.root;
-    sample.nodes[newNode].indexOfParentEdge = 4;
-    sample.nodes[newNode].lastIndex = 6;
-    sample.nodes[newNode].leaf = 4;
-    sample.nodes[sample.root].children.push_back(newNode);
-    
-    vector <int> input1, input;
-    input.push_back(1);
-    input.push_back(2);
-    input.push_back(1);
-    input.push_back(1);
-    input.push_back(1);
-    input.push_back(2);
-    input.push_back(2);
-    input.push_back(1);
-    input.push_back(2);
-    input.push_back(2);
-    input.push_back(2);
-    input.push_back(1);
-//     
-    input1.push_back(1);
-    input1.push_back(0);
-    input1.push_back(1);
-    input1.push_back(2);
-    input1.push_back(3);
-    input1.push_back(2);
-//     1 0 1 2 3 2
-    
-    //sample = buildSuffixTree(input1);
-    //dfs_(x, x.root, 0, input);
-    //return;
-    depthDfs(sample.root, sample);
-    
-    decompress(sample, input);
-    sample = buildSuffixTree(input);
-    dfs_(sample, sample.root, 0, input);
-    return;
-    
-    SuffixTree &even = sample;
-    SuffixTree odd = buildOddSuffixTree(even, input);
-    dfs_(odd, odd.root, 0, input);
-    
-    SuffixTree merged = mergeTrees(even, odd, input);
-    dfs_(even, even.root, 0, input);
-    dfs_(odd, odd.root, 0, input);
-    dfs_(merged, merged.root, 0, input);
-    
-    
-//     vector <unsigned int> evenSuffixArray;
-//     vector <unsigned int> evenLcaArray;
-//     buildSuffixArray(sample, evenSuffixArray, evenLcaArray);
-//     
-//     
-//     for (int i = 0; i < evenSuffixArray.size(); ++i) {
-//         for (int j = evenSuffixArray[i]; j < input.size(); ++j) {
-//             printf("%d ", input[j]);
-//         }
-//         printf(": %d\n", (i < evenLcaArray.size() ? evenLcaArray[i] : -1));
-//     }
-}
-
 
 long long dfs(SuffixTree &t, int v) {
     if (v != t.root)
@@ -1244,38 +864,15 @@ void gen(int i, int n) {
 }
 
 int main() {
-//     gen(0, 12);
-//     return 0;
-    //sample_();
     std::string s;
     std::cin >> s;
     
     int n = s.size();
     vector <int> x(n);
-//     printf("%d\n", n);
     for (int i = 0; i < n; ++i)
         x[i] = s[i] - 'a';
     SuffixTree y = buildSuffixTree(x);
     std::cout << dfs(y, y.root) << std::endl;
     return 0;
-//     vector <pair<int, int> > x(n);
-//     for (int i = 0; i < n; ++i) {
-//         scanf("%d %d", &x[i].first, &x[i].second);
-//     }
-//     x = radixSort(x, [] (const pair<int, int> & y) -> int {
-//         return y.second;
-//     });
-//     printf("---------------\n");
-//     for (int i = 0; i < n; ++i) {
-//         printf("%d %d\n", x[i].first, x[i].second);
-//     }
-//     
-//     x = radixSort(x, [] (const pair<int, int> & y) -> int {
-//         return y.first;
-//     });
-//     printf("---------------\n");
-//     for (int i = 0; i < n; ++i) {
-//         printf("%d %d\n", x[i].first, x[i].second);
-//     }
     
 }

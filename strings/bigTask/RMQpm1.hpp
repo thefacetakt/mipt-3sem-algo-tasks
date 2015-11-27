@@ -59,6 +59,7 @@ RMQpm1::RMQpm1(const vector<unsigned int> &elements) {
                 currentMask |= (1 << j);
             }
         }
+        currentMask >>= 1;
         type.push_back(currentMask);
         
         prefixMins.back()[0] = make_pair(decomposition.back()[0], i + 0);
@@ -112,7 +113,7 @@ unsigned int RMQpm1::minimum(unsigned int i, unsigned int j) {
             }
         }
     } else {
-        return iBlock * block + dp[type[iBlock]][j - i][i].second;
+        return iBlock * block + dp[type[iBlock]][j - i][i % block].second;
     }
 }
 

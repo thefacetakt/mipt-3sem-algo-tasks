@@ -1,6 +1,7 @@
 #ifndef _SPARSE_TABLE
 #define _SPARSE_TABLE
 
+
 #include <vector>
 #include <algorithm>
 #include <climits>
