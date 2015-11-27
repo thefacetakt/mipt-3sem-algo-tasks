@@ -1,4 +1,5 @@
-#define _GLIBCXX_DEBUG
+// #define _GLIBCXX_DEBUG
+// #define _PRINT_DBG
 
 #include <cstdio>
 #include <iostream>
@@ -24,6 +25,7 @@ using std::swap;
 
 #ifndef _SPARSE_TABLE
 #define _SPARSE_TABLE
+
 
 #include <vector>
 #include <algorithm>
@@ -287,6 +289,10 @@ struct SuffixTree {
     vector <unsigned int> pull;
     unsigned int root;
     
+    void checkNode(const Node &node) {
+        assert(node.parent == -1 || nodes[node.parent].depth < node.depth);
+        assert(node.leaf == -2 || node.parent == -1 || node.indexOfParentEdge < node.lastIndex);
+    }
     
     SuffixTree() {
         nodes.resize(1);
@@ -307,8 +313,12 @@ struct SuffixTree {
 //             nodes[u].indexOfParentEdge = node.indexOfParentEdge;
             nodes[u].indexOfParentEdge = leaf + nodes[node.parent].depth;
             nodes[u].lastIndex = leaf + nodes[u].depth;
+#ifdef _GLIBCXX_DEBUG
+            checkNode(nodes[u]);
+#endif
             newParentsChildren.push_back(u);
         }
+        nodes[index].children.clear();
         pull.push_back(index);
     }
     
@@ -320,7 +330,11 @@ struct SuffixTree {
             nodes[u].parent = parent;
             nodes[u].indexOfParentEdge = leaf + nodes[parent].depth;
             nodes[u].lastIndex = leaf + nodes[u].depth;
+#ifdef _GLIBCXX_DEBUG
+            checkNode(nodes[u]);
+#endif
         }
+        nodes[v].children.clear();
         pull.push_back(v);
     }
      
@@ -356,6 +370,10 @@ struct SuffixTree {
         nodes[child].parent = newNodeIndex;
         newNode.children.push_back(child);
         nodes[parent].children[indexOfChild] = newNodeIndex;
+#ifdef _GLIBCXX_DEBUG
+            checkNode(nodes[child]);
+            checkNode(nodes[newNodeIndex]);
+#endif
         return newNodeIndex;
     }
 };
@@ -424,7 +442,10 @@ int decompressDfs(unsigned int v, vector <unsigned int> &parentsNewChildren,
     vector <unsigned int> myNewChildren;
     compressed.nodes[v].depth = depth;
     for (auto const &u: compressed.nodes[v].children) {
-        int newLeaf = decompressDfs(u, myNewChildren, compressed, input, depth + (compressed.nodes[v].indexOfParentEdge * 2 + 1 == input.size() ? 1 : 2));
+        int newLeaf = decompressDfs(u, myNewChildren, compressed, input, min(static_cast<unsigned int>(input.size()), 
+                                    depth + (compressed.nodes[u].lastIndex - compressed.nodes[u].indexOfParentEdge) * 2 
+                                    - (compressed.nodes[u].lastIndex == input.size() / 2 + 1))); 
+        //(compressed.nodes[v].indexOfParentEdge * 2 + 1 == input.size() ? 1 : 2));
         if (leaf == -1) {
             leaf = newLeaf;
         }
@@ -477,6 +498,8 @@ int decompressDfs(unsigned int v, vector <unsigned int> &parentsNewChildren,
                     newNode.children = vector<unsigned int>(newNode.children.begin() + 1, newNode.children.end());
                 }
                 myNewChildren.push_back(newNodeIndex);
+                compressed.checkNode(compressed.nodes[newNodeIndex]);
+                compressed.checkNode(compressed.nodes[v]);
             } else {
                 myNewChildren.push_back(similarKids.back());
             }
@@ -550,6 +573,7 @@ void buildEuler(const SuffixTree &tree, vector <pair<unsigned int, unsigned int>
 SuffixTree buildSuffixTreeFromSA(vector <unsigned int> &sa, vector <unsigned int> &lcp, unsigned int length) {
     vector <int> tmp;
     SuffixTree result = buildSuffixTree(tmp);
+    result.nodes[result.root].leaf = -1;
     int newNodeIndex = result.newNode();
     auto &newNode = result.nodes[newNodeIndex];
     newNode.parent = result.root;
@@ -687,6 +711,13 @@ void copySubTree(const SuffixTree &from, SuffixTree &to, unsigned int fromStart,
 
 void mergeNodes(unsigned int first, unsigned int second, unsigned int to,
     SuffixTree &result, SuffixTree &tree1, SuffixTree &tree2, const vector <int> &input) {
+//     if (result.nodes[to].leaf == -1 && tree1.nodes[first].leaf != -1 && tree1.nodes[first].depth == result.nodes[to].depth) {
+//         result.nodes[to].leaf = tree1.nodes[first].leaf;
+//     }
+//     if (result.nodes[to].leaf == -1 && tree2.nodes[second].leaf != -1 && tree2.nodes[second].depth == result.nodes[to].depth) {
+//         result.nodes[to].leaf = tree1.nodes[second].leaf;
+//     }
+//     
     unsigned int firstIndex = 0;
     unsigned int secondIndex = 0;
     for (; firstIndex < tree1.nodes[first].children.size() && secondIndex < tree2.nodes[second].children.size();) {
@@ -750,7 +781,9 @@ bool findSuffixesDfs(unsigned int v, SuffixTree &tree, vector <unsigned int> &ou
     output[v] = tree.nodes[v].leaf;
     for (auto const &u: tree.nodes[v].children) {
         if (findSuffixesDfs(u, tree, output)) {
-            output[v] = output[u];
+            if (output[v] == -1) {
+                output[v] = output[u];
+            }
         }
     }
     return (output[v] != -1);
@@ -760,6 +793,43 @@ vector <unsigned int> findSuffixes(SuffixTree &tree) {
     vector <unsigned int> result;
     findSuffixesDfs(tree.root, tree, result);
     return result;
+}
+
+void findLcaSuffix(unsigned int v, const SuffixTree &merged, const SuffixTree &first, const SuffixTree &second, vector <pair<int, int> > &output) {
+    while (output.size() <= v) {
+        output.push_back(make_pair(-1, -1));
+    }
+    if (merged.nodes[v].leaf >= 0) {
+        if (merged.nodes[v].leaf % 2 == 0) {
+            output[v].first = merged.nodes[v].leaf;
+        } else {
+            output[v].second = merged.nodes[v].leaf;
+        }
+    } else if (merged.nodes[v].leaf == -2) {
+        output[v].first = first.nodes[merged.nodes[v].firstHiddenInfo].leaf;
+        output[v].second = second.nodes[merged.nodes[v].secondHiddenInfo].leaf;
+    }
+    int reserve = -1;
+    for (auto const &u: merged.nodes[v].children) {
+        findLcaSuffix(u, merged, first, second, output);
+        if (output[u].first != -1) {
+            if (output[v].first == -1) {
+                output[v].first = output[u].first;
+                if (output[u].second != -1) {
+                    reserve = output[u].second;
+                }
+            } else if (reserve != -1) {
+                output[v].first = output[u].first;
+                output[v].second = reserve;
+            }
+        }
+        if (output[u].second != -1 && output[u].second != reserve) {
+            if (output[v].second == -1) {
+                output[v].second = output[u].second;
+            }
+        }
+    }
+    assert(merged.nodes[v].leaf != -2 || (output[v].first != -1 && output[v].second != -1));
 }
 
 void trueLengthFillDfs(unsigned int v, const SuffixTree &merged, 
@@ -786,10 +856,11 @@ void trueLengthFillDfs(unsigned int v, const SuffixTree &merged,
                         merged, suffixLcaGetter, firstSuffix + 1, 
                         secondSuffix + 1, length, output);
     output[v] = output[u] + 1;
+    assert(output[v] <= merged.nodes[v].depth);
 }
 
 vector <unsigned int> computeTrueLength(const SuffixTree &merged, const SuffixTree &first, const SuffixTree &second,
-                       vector <unsigned int> &firstSuffixes, vector <unsigned int> &secondSuffixes, 
+//                        vector <unsigned int> &firstSuffixes, vector <unsigned int> &secondSuffixes, 
                        unsigned int inputLength) {
     vector <pair<unsigned int, unsigned int> > euler;
     vector <unsigned int> realNode;
@@ -818,6 +889,9 @@ vector <unsigned int> computeTrueLength(const SuffixTree &merged, const SuffixTr
         return realNode[lcaGetter.lca(irrealNode[i], irrealNode[j])];
     };
     
+    vector <pair<int, int> > superSuffix;
+    findLcaSuffix(merged.root, merged, first, second, superSuffix);
+    
     vector <unsigned int> toVisit;
     toVisit.push_back(merged.root);
     while (toVisit.size()) {
@@ -825,8 +899,10 @@ vector <unsigned int> computeTrueLength(const SuffixTree &merged, const SuffixTr
         toVisit.pop_back();
         if (merged.nodes[v].leaf == -2 && (output.size() <= v || output[v] == -1)) {
             trueLengthFillDfs(v, merged, suffixLcaGetter, 
-                              firstSuffixes[merged.nodes[v].firstHiddenInfo], 
-                              secondSuffixes[merged.nodes[v].secondHiddenInfo],
+                              superSuffix[v].first,
+                              superSuffix[v].second,
+//                               firstSuffixes[merged.nodes[v].firstHiddenInfo], 
+//                               secondSuffixes[merged.nodes[v].secondHiddenInfo],
                               inputLength, output);
         }
         for (auto const &u: merged.nodes[v].children) {
@@ -838,20 +914,21 @@ vector <unsigned int> computeTrueLength(const SuffixTree &merged, const SuffixTr
 
 void correctMerge(unsigned int v, unsigned int parentsPlace, SuffixTree &merged, const SuffixTree &first, 
                   const SuffixTree &second, const vector <unsigned int> &trueLength, const vector <int> &input, 
+                  const vector <unsigned int> &firstSuffix, const vector <unsigned int> &secondSuffix,
                   unsigned int copyTree=2) {
     if (merged.nodes[v].leaf == -2) {
         unsigned int firstInfo = merged.nodes[v].firstHiddenInfo;
         unsigned int secondInfo = merged.nodes[v].secondHiddenInfo;
         SuffixTree::Node const *firstNode = &first.nodes[firstInfo];
         SuffixTree::Node const *secondNode = &second.nodes[secondInfo];
-        if (copyTree == 0) {
+        if (copyTree == 0 || (merged.nodes[v].depth == trueLength[v] && firstNode->leaf != -1)) {
             copyNodeExceptParentAndChildren(*firstNode, merged.nodes[v]);
         } else if (copyTree == 1 || merged.nodes[v].depth == trueLength[v]) {
             copyNodeExceptParentAndChildren(*secondNode, merged.nodes[v]);
         } else {
             unsigned int commonLength = trueLength[v] - merged.nodes[merged.nodes[v].parent].depth;
-            if (input[firstNode->indexOfParentEdge + commonLength] >
-                input[secondNode->indexOfParentEdge + commonLength]) {
+            if (input[firstSuffix[firstInfo] + (firstNode->parent == -1 ? 0 : first.nodes[firstNode->parent].depth)/*firstNode->indexOfParentEdge */+ commonLength] >
+                input[secondSuffix[secondInfo] + (secondNode->parent == -1 ? 0 : second.nodes[secondNode->parent].depth)/*secondNode->indexOfParentEdge*/ + commonLength]) {
                 
                 swap(firstInfo, secondInfo);
                 swap(firstNode, secondNode);
@@ -874,20 +951,59 @@ void correctMerge(unsigned int v, unsigned int parentsPlace, SuffixTree &merged,
     }
     for (unsigned int i = 0; i < merged.nodes[v].children.size(); ++i) {
         unsigned int u = merged.nodes[v].children[i];
-        correctMerge(u, i, merged, first, second, trueLength, input, copyTree);
+        correctMerge(u, i, merged, first, second, trueLength, input, firstSuffix, secondSuffix, copyTree);
     }
 }
+
+void dfs__(SuffixTree &tree, int v) {
+#ifdef _PRINT_DBG
+    printf("%d -> %d [label=\"%d:%d, %d %d\"]\n", tree.nodes[v].parent, v, tree.nodes[v].indexOfParentEdge, tree.nodes[v].lastIndex, tree.nodes[v].leaf, tree.nodes[v].depth);
+#endif
+    for (auto const &u: tree.nodes[v].children) {
+        dfs__(tree, u);
+    }
+}
+
+
+void dfs_(SuffixTree &tree, int v, int count, const vector<int> &input) {
+//     for (int i = 0; i < count; ++i) {
+//         printf("-");
+//     }
+//       printf(" %d: %d %d %d %d %d\n", v, tree.nodes[v].parent, tree.nodes[v].indexOfParentEdge, tree.nodes[v].lastIndex, tree.nodes[v].leaf, tree.nodes[v].depth);
+#ifdef _PRINT_DBG
+    printf("%d -> %d [label=\"", tree.nodes[v].parent, v);
+    for (int i = tree.nodes[v].indexOfParentEdge; i != tree.nodes[v].lastIndex; ++i) {
+        printf("%d", input[i]);
+    }
+    printf(", %d, %d\"]\n", tree.nodes[v].leaf, tree.nodes[v].depth);
+#endif
+    assert(tree.nodes[v].indexOfParentEdge < tree.nodes[v].lastIndex || tree.nodes[v].parent == -1);
+    assert(tree.nodes[v].parent == -1 || tree.nodes[v].depth > tree.nodes[tree.nodes[v].parent].depth);
+    for (auto const &u: tree.nodes[v].children) {
+        dfs_(tree, u, count + 1, input);
+    }
+}
+
 
 SuffixTree mergeTrees(SuffixTree &tree1, SuffixTree &tree2, const vector <int> &input) {
     vector <int> tmp;
     SuffixTree merged = buildSuffixTree(tmp);
+    merged.nodes[merged.root].leaf = -1;
     mergeNodes(tree1.root, tree2.root, merged.root, merged, tree1, tree2, input);
-    
+//     dfs__(merged, merged.root);
+#ifdef _PRINT_DBG
+    printf("NEW TREE1\n");
+#endif
+//     dfs_(tree1, tree1.root, 0, input);
+#ifdef _PRINT_DBG
+    printf("NEW TREE2\n");
+#endif
+//     dfs_(tree2, tree2.root, 0, input);
     vector <unsigned int> firstSuffixes = findSuffixes(tree1);
     vector <unsigned int> secondSuffixes = findSuffixes(tree2);
     
-    vector <unsigned int> trueLength = computeTrueLength(merged, tree1, tree2, firstSuffixes, secondSuffixes, input.size());
-    correctMerge(merged.root, -1, merged, tree1, tree2, trueLength, input);
+    vector <unsigned int> trueLength = computeTrueLength(merged, tree1, tree2,/* firstSuffixes, secondSuffixes,*/ input.size());
+    correctMerge(merged.root, -1, merged, tree1, tree2, trueLength, input, firstSuffixes, secondSuffixes);
     
     return merged;
 }
@@ -915,23 +1031,7 @@ int cleanTreeDfs(unsigned int v, unsigned int parent, SuffixTree &tree) {
     return leaf;
 }
 
-void dfs_(SuffixTree &tree, int v, int count, const vector<int> &input) {
-//     for (int i = 0; i < count; ++i) {
-//         printf("-");
-//     }
-//       printf(" %d: %d %d %d %d %d\n", v, tree.nodes[v].parent, tree.nodes[v].indexOfParentEdge, tree.nodes[v].lastIndex, tree.nodes[v].leaf, tree.nodes[v].depth);
-//     printf("%d -> %d [label=\"", tree.nodes[v].parent, v);
-//     for (int i = tree.nodes[v].indexOfParentEdge; i != tree.nodes[v].lastIndex; ++i) {
-//         printf("%d", input[i]);
-//     }
-//     printf(", %d\"]\n", tree.nodes[v].leaf);
-    
-    assert(tree.nodes[v].indexOfParentEdge < tree.nodes[v].lastIndex || tree.nodes[v].parent == -1);
-    assert(tree.nodes[v].parent == -1 || tree.nodes[v].depth > tree.nodes[tree.nodes[v].parent].depth);
-    for (auto const &u: tree.nodes[v].children) {
-        dfs_(tree, u, count + 1, input);
-    }
-}
+
 
 SuffixTree buildSuffixTree(const vector <int> &input) {
 //     printf("CALL %d\n", input.size());
@@ -969,27 +1069,37 @@ SuffixTree buildSuffixTree(const vector <int> &input) {
         }
         pairedString[consequentPairs[i].number] = currentNumber;
     }
-//     for (unsigned int i = 0; i < pairedString.size(); ++i) {
-//         printf("%d ", pairedString[i]);
-//     }
-//     printf("\n");
+#ifdef _PRINT_DBG
+    for (unsigned int i = 0; i < pairedString.size(); ++i) {
+        printf("%d ", pairedString[i]);
+    }
+    printf("\n");
+#endif
     SuffixTree compressed = buildSuffixTree(pairedString);
     compressed.nodes[compressed.root].leaf = -1;
     decompress(compressed, input);
-    depthDfs(compressed.root, compressed);
+    //depthDfs(compressed.root, compressed);
     SuffixTree &even = compressed;
-//     printf("EVEN:\n");
-    dfs_(even, even.root, 0, input);
+#ifdef _PRINT_DBG
+    printf("EVEN:\n");
+#endif
+//     dfs_(even, even.root, 0, input);
     SuffixTree odd = buildOddSuffixTree(even, input);
-//     printf("ODD:\n");
-    dfs_(odd, odd.root, 0, input);
+#ifdef _PRINT_DBG
+    printf("ODD:\n");
+#endif
+//     dfs_(odd, odd.root, 0, input);
     SuffixTree almostResult = mergeTrees(even, odd, input);
-//     printf("ALMOST:\n");
-    dfs_(almostResult, almostResult.root, 0, input);
+#ifdef _PRINT_DBG
+    printf("ALMOST:\n");
+#endif
+//     dfs_(almostResult, almostResult.root, 0, input);
     cleanTreeDfs(almostResult.root, -1, almostResult);
     almostResult.nodes[almostResult.root].leaf = input.size();
-//     printf("RESL\n");
-    dfs_(almostResult, almostResult.root, 0, input);
+#ifdef _PRINT_DBG
+    printf("RESL\n");
+#endif
+//     dfs_(almostResult, almostResult.root, 0, input);
     return almostResult;
 }
 
@@ -1116,7 +1226,26 @@ long long dfs(SuffixTree &t, int v) {
     return sum;
 }
 
+vector <int> res;
+void gen(int i, int n) {
+    if (i == n) {
+        for (int j = 0; j < n; ++j) {
+            printf("%d ", res[j]);
+        }
+        printf("\n");
+        buildSuffixTree(res);
+        return;
+    }
+    for (int j = 0; j <= 1; ++j) {
+        res.push_back(j);
+        gen(i + 1, n);
+        res.pop_back();
+    }
+}
+
 int main() {
+//     gen(0, 12);
+//     return 0;
     //sample_();
     std::string s;
     std::cin >> s;
