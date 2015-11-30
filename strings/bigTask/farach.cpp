@@ -666,8 +666,8 @@ void correctMerge(unsigned int v, unsigned int parentsPlace, SuffixTree &merged,
             copyNodeExceptParentAndChildren(*secondNode, merged.nodes[v]);
         } else {
             unsigned int commonLength = trueLength[v] - merged.nodes[merged.nodes[v].parent].depth;
-            if (input[firstSuffix[firstInfo] + (firstNode->parent == -1 ? 0 : first.nodes[firstNode->parent].depth)/*firstNode->indexOfParentEdge */+ commonLength] >
-                input[secondSuffix[secondInfo] + (secondNode->parent == -1 ? 0 : second.nodes[secondNode->parent].depth)/*secondNode->indexOfParentEdge*/ + commonLength]) {
+            if (input[firstSuffix[firstInfo] + (firstNode->parent == -1 ? 0 : first.nodes[firstNode->parent].depth) + commonLength] >
+                input[secondSuffix[secondInfo] + (secondNode->parent == -1 ? 0 : second.nodes[secondNode->parent].depth) + commonLength]) {
                 
                 swap(firstInfo, secondInfo);
                 swap(firstNode, secondNode);
@@ -737,7 +737,7 @@ SuffixTree mergeTrees(SuffixTree &tree1, SuffixTree &tree2, const vector <int> &
     vector <unsigned int> firstSuffixes = findSuffixes(tree1);
     vector <unsigned int> secondSuffixes = findSuffixes(tree2);
     
-    vector <unsigned int> trueLength = computeTrueLength(merged, tree1, tree2,/* firstSuffixes, secondSuffixes,*/ input.size());
+    vector <unsigned int> trueLength = computeTrueLength(merged, tree1, tree2, input.size());
     correctMerge(merged.root, -1, merged, tree1, tree2, trueLength, input, firstSuffixes, secondSuffixes);
     
     return merged;

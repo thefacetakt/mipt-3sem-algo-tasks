@@ -1,3 +1,6 @@
+#ifndef _LCA_CPP
+#define _LCA_CPP
+
 #include <vector>
 #include <algorithm>
 #include <utility>
@@ -12,7 +15,7 @@ using std::max;
 using std::min;
 using std::pair;
 using std::make_pair;
-    
+
 LCA::LCA(const vector<pair<unsigned int, unsigned int> > &euler) {
     unsigned int n = (euler.size() + 1) / 2;
     vector <unsigned int> toRMQ(euler.size());
@@ -37,13 +40,4 @@ unsigned int LCA::lca(unsigned int u, unsigned int v) {
     return myEuler[rmq.minimum(min(first[u], first[v]), max(last[u], last[v]))];
 }
 
-vector <pair<unsigned int, unsigned int> > euler;
-vector <vector<int> > t;
-
-void dfs(int v, int d) {
-    euler.push_back(make_pair(d, v));
-    for (auto const &u: t[v]) {
-        dfs(u, d + 1);
-        euler.push_back(make_pair(d, v));
-    }
-}
+#endif
