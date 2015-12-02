@@ -62,6 +62,7 @@ vector <T> radixSort(const vector <T> &input, Compare comp) {
 vector <unsigned int> finalDfs(const vector <vector <unsigned int> > &strings,
     const vector<Node> &trie) {
     vector <unsigned int> ans(strings.size());
+    vector <unsigned int> tempAns;
     vector <unsigned int> stack;
     stack.push_back(0);
     unsigned int currentNumber = 0;
@@ -70,6 +71,7 @@ vector <unsigned int> finalDfs(const vector <vector <unsigned int> > &strings,
         stack.pop_back();
         for (auto const &i: trie[v].term) {
             ans[i] = currentNumber;
+            tempAns.push_back(i);
         }
         if (trie[v].term.size()) {
             ++currentNumber;
@@ -77,7 +79,17 @@ vector <unsigned int> finalDfs(const vector <vector <unsigned int> > &strings,
         for (unsigned int i = trie[v].children.size() - 1; i != UINT_MAX; --i) {
             stack.push_back(trie[v].children[i]);
         }
+    
     }
+//     printf("Sorted:\n");
+//     printf("----------\n");
+//     for (int i = 0; i < strings.size(); ++i) {
+//         printf("%d: ", tempAns[i]);
+//         for (int j = 0; j < strings[tempAns[i]].size(); ++j)
+//             printf("%d ", strings[tempAns[i]][j]);
+//         printf("\n");
+//     }
+//     printf("----------\n");
     return ans;
 }
 
@@ -99,6 +111,13 @@ void addNode(const StringSortingItem &item, vector <Node> &trie,
 }
 
 vector <unsigned int> sortOfString(const vector <vector <unsigned int> > &strings) {
+//     printf("----------\n");
+//     for (int i = 0; i < strings.size(); ++i) {
+//         for (int j = 0; j < strings[i].size(); ++j)
+//             printf("%d ", strings[i][j]);
+//         printf("\n");
+//     }
+//     printf("----------\n");
     vector <StringSortingItem> temp;
     for (unsigned int i = 0; i < strings.size(); ++i) {
         for (unsigned int j = 0; j < strings[i].size(); ++j) {
@@ -129,7 +148,7 @@ vector <unsigned int> sortOfString(const vector <vector <unsigned int> > &string
     for (unsigned int i = 0; i < position.size(); ++i) {
         trie[position[i]].term.push_back(i);
     }
-    
+
     return finalDfs(strings, trie);
 }
 
@@ -169,15 +188,13 @@ void sortStars(const vector <unsigned int> &input,
                                 vector <vector <unsigned int> > &out) {
     vector <vector <unsigned int> > starStrings;
     vector <unsigned int> currentString;
-    for (unsigned int i = 0; i <= input.size(); ++i) {
-        if (i == input.size() || type[i] == STAR) {
+    for (unsigned int i = 0; i < input.size(); ++i) {
+        if (i + 1 == input.size() || type[i] == STAR) {
             if (currentString.size()) {
+                currentString.push_back(input[i]);
                 currentString.push_back(maxSymbol);
                 starStrings.push_back(currentString);
                 currentString.clear();
-            }
-            if (i == input.size()) {
-                break;
             }
             currentString.push_back(input[i]);
         } else {
@@ -198,6 +215,10 @@ void sortStars(const vector <unsigned int> &input,
     }
     
     vector <unsigned int> sortedStars = inducedSorting(newString);
+//     printf("SS:\n");
+//     for (unsigned int i = 0; i < sortedStars.size(); ++i) {
+//         printf("%d %d\n", sortedStars[i], starPositions[sortedStars[i]]);
+//     }
     for (unsigned int i = 0; i < sortedStars.size(); ++i) {
         out[input[starPositions[sortedStars[i]]]].push_back(starPositions[sortedStars[i]]);
     }
@@ -255,6 +276,7 @@ vector <unsigned int> inducedSorting (vector <unsigned int> input) {
     input.push_back(0);
     
     vector <Type> type = detectTypes(input);
+//     printTypes(input, type);
     vector <vector <vector <unsigned int> > > sortedParts(static_cast<unsigned int>(TOTAL), vector<vector<unsigned int> > (maxSymbol));
     sortStars(input, maxSymbol, type, sortedParts[STAR]);
     induceMinuses(input, type, sortedParts);
@@ -271,136 +293,13 @@ vector <unsigned int> inducedSorting (vector <unsigned int> input) {
     return answer;
 }
 
-
-using std::string;
-using std::cin;
-
-string s;
-
-
-struct toSort
-{
-    int first;
-    int second;
-    int sufNum;
-};
-
-bool sortFunc(int i, int j)
-{
-    if(s[i] == s[j])
-    {
-            return i < j;
-    }
-    return s[i] < s[j];
-}
-
-vector<int> sm()
-{	
-    int n = s.length();
-    vector <int> sufmas(n);
-    vector <int> C1(n);
-    vector <int> C2(n);
-    for (int i = 0; i < n; ++i)
-    {
-            sufmas[i] = i;
-    }
-    sort(sufmas.begin(), sufmas.end(), sortFunc);
-    C1[0] = 0;
-    for (int i = 1; i < n; ++i)
-    {
-            C1[i] = C1[i - 1];
-            if(s[sufmas[i]] != s[sufmas[i - 1]])
-            {
-                    ++C1[i];
-            }
-    }
-    for (int i = 0; i < n; ++i)
-    {
-            C2[sufmas[i]] = C1[i];
-    }
-    vector <toSort> t(n);
-    vector <toSort> tT(n);
-    int p = 1;
-    while(p < n)
-    {
-            for (int i = 0; i < n; ++i)
-            {
-                    t[i].first = C1[i];
-                    t[i].second = -1;
-                    t[i].sufNum = sufmas[i];
-                    if(sufmas[i] + p < n)
-                    {
-                            t[i].second = C2[sufmas[i] + p];
-                    }
-            }
-            C2.assign(n + 1, 0);
-            for (int i = 0; i < n; ++i)
-            {
-                    ++C2[t[i].second + 1];
-            }
-            for (int i = 1; i <= n; ++i)
-            {
-                    C2[i] += C2[i - 1];
-            }
-            for (int i = n - 1; i >= 0; --i)
-            {
-                    --C2[t[i].second + 1];
-                    tT[C2[t[i].second + 1]] = t[i];
-            }
-            C2.assign(n, 0);
-            for (int i = 0; i < n; ++i)
-            {
-                    ++C2[tT[i].first];
-            }
-            for (int i = 1; i < n; ++i)
-            {
-                    C2[i] += C2[i - 1];
-            }
-            for (int i = n - 1; i >= 0; --i)
-            {
-                    --C2[tT[i].first];
-                    t[C2[tT[i].first]] = tT[i];
-            }
-            C1.assign(n, 0);
-            
-            for (int i = 1; i < n; ++i)
-            {
-                    C1[i] = C1[i - 1];
-                    if(t[i].first!= t[i - 1].first ||
-                            t[i].second != t[i - 1].second)
-                    {
-                            ++C1[i];
-                    }
-            }
-            for(int i = 0; i < n; ++i)
-            {
-                    sufmas[i] = t[i].sufNum;
-            }
-            
-            for (int i = 0; i < n; ++i)
-            {
-                C2[sufmas[i]] = C1[i];
-            }
-            p *= 2;
-    }
-    return sufmas;
-}
-
 int main() {
+    std::string s;
     std::cin >> s;
     vector <unsigned int> input(s.size());
     for (unsigned int i = 0; i < s.size(); ++i)
         input[i] = s[i] - 'a';
     vector <unsigned int> sufmas = inducedSorting(input);
-    for (int i = 0; i < sufmas.size(); ++i)
-        printf("%d ", sufmas[i]);
-    printf("\n");
-    
-    vector <int> smm = sm();
-    for (int i = 0; i < smm.size(); ++i) {
-        printf("%d ", smm[i]);
-    }
-    printf("\n");
     
     int n = sufmas.size();
     vector <int> antiSufMas(n);
