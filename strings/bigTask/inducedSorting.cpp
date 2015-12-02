@@ -81,15 +81,6 @@ vector <unsigned int> finalDfs(const vector <vector <unsigned int> > &strings,
         }
     
     }
-//     printf("Sorted:\n");
-//     printf("----------\n");
-//     for (int i = 0; i < strings.size(); ++i) {
-//         printf("%d: ", tempAns[i]);
-//         for (int j = 0; j < strings[tempAns[i]].size(); ++j)
-//             printf("%d ", strings[tempAns[i]][j]);
-//         printf("\n");
-//     }
-//     printf("----------\n");
     return ans;
 }
 
@@ -111,13 +102,6 @@ void addNode(const StringSortingItem &item, vector <Node> &trie,
 }
 
 vector <unsigned int> sortOfString(const vector <vector <unsigned int> > &strings) {
-//     printf("----------\n");
-//     for (int i = 0; i < strings.size(); ++i) {
-//         for (int j = 0; j < strings[i].size(); ++j)
-//             printf("%d ", strings[i][j]);
-//         printf("\n");
-//     }
-//     printf("----------\n");
     vector <StringSortingItem> temp;
     for (unsigned int i = 0; i < strings.size(); ++i) {
         for (unsigned int j = 0; j < strings[i].size(); ++j) {
@@ -175,13 +159,6 @@ vector <Type> detectTypes(const vector <unsigned int> &input) {
     return type;
 }
 
-void printTypes(const vector <unsigned int> &input, const vector<Type> &type) {
-    for (unsigned int i = 0; i < input.size(); ++i) {
-        printf("%c", (type[i] == PLUS ? '+' : type[i] == MINUS ? '-' : '*'));
-    }
-    printf("\n");
-}
-
 void sortStars(const vector <unsigned int> &input,
                                 unsigned int maxSymbol,
                                 const vector <Type> &type,
@@ -215,10 +192,6 @@ void sortStars(const vector <unsigned int> &input,
     }
     
     vector <unsigned int> sortedStars = inducedSorting(newString);
-//     printf("SS:\n");
-//     for (unsigned int i = 0; i < sortedStars.size(); ++i) {
-//         printf("%d %d\n", sortedStars[i], starPositions[sortedStars[i]]);
-//     }
     for (unsigned int i = 0; i < sortedStars.size(); ++i) {
         out[input[starPositions[sortedStars[i]]]].push_back(starPositions[sortedStars[i]]);
     }
@@ -276,7 +249,6 @@ vector <unsigned int> inducedSorting (vector <unsigned int> input) {
     input.push_back(0);
     
     vector <Type> type = detectTypes(input);
-//     printTypes(input, type);
     vector <vector <vector <unsigned int> > > sortedParts(static_cast<unsigned int>(TOTAL), vector<vector<unsigned int> > (maxSymbol));
     sortStars(input, maxSymbol, type, sortedParts[STAR]);
     induceMinuses(input, type, sortedParts);
@@ -291,39 +263,4 @@ vector <unsigned int> inducedSorting (vector <unsigned int> input) {
         }
     }
     return answer;
-}
-
-int main() {
-    std::string s;
-    std::cin >> s;
-    vector <unsigned int> input(s.size());
-    for (unsigned int i = 0; i < s.size(); ++i)
-        input[i] = s[i] - 'a';
-    vector <unsigned int> sufmas = inducedSorting(input);
-    
-    int n = sufmas.size();
-    vector <int> antiSufMas(n);
-    for (int i = 0; i < n; ++i)
-    {
-        antiSufMas[sufmas[i]] = i;
-    }
-    vector <int> lcp(n - 1, 0);
-    int k = 0;
-    for (int i = 0; i < n; ++i)
-    {
-        if(antiSufMas[i] == n - 1)
-        {
-                k = 0;
-                continue;
-        }
-        lcp[antiSufMas[i]] = k;
-        for(int j1 = i + k, j2 = sufmas[antiSufMas[i] + 1] + k; j1 < n && j2 < n && s[j1] == s[j2]; ++j1, ++j2, ++lcp[antiSufMas[i]]);
-        k = max(lcp[antiSufMas[i]] - 1, 0);
-    }
-    long long answer = (n - sufmas[0]);
-    for (int i = 1; i < n; ++i)
-    {
-        answer += (n - sufmas[i] - lcp[i - 1]);
-    }
-    printf("%lld\n", answer);
 }
