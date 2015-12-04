@@ -73,24 +73,6 @@ public:
 
 #endif
 
-
-#ifndef _MAX_FLOW_FINDER_
-#define _MAX_FLOW_FINDER_
-
-
-#include <vector>
-
-class MaxFlowFinder {
-public:
-    virtual MaxFlowDescription findMaxFlow(unsigned int verticeCount, const std::vector<DirectedEdgeWithStart> &net, unsigned int source, unsigned int sink) = 0;
-    virtual ~MaxFlowFinder() {
-    }
-};
-
-
-
-#endif
-
 #ifndef _NET
 #define _NET
 
@@ -113,6 +95,48 @@ struct Net {
 };
 
 #endif
+
+#ifndef _MAX_FLOW_FINDER_
+#define _MAX_FLOW_FINDER_
+
+#include <vector>
+
+class MaxFlowFinder {
+protected:
+    Net net_;
+    virtual void init(unsigned int verticesCount) = 0;
+    virtual void findMaxFlow() = 0;
+    virtual void cleanUp() = 0;
+public:
+    MaxFlowDescription run(unsigned int verticesCount, const std::vector<DirectedEdgeWithStart> &net, unsigned int source, unsigned int sink);
+    virtual ~MaxFlowFinder() {
+    }
+};
+
+
+
+#endif
+
+#include <vector>
+#include <climits>
+
+
+MaxFlowDescription MaxFlowFinder::run(unsigned int verticesCount, const std::vector<DirectedEdgeWithStart> &net, unsigned int source, unsigned int sink) {
+    if (source == sink) {
+        MaxFlowDescription result;
+        result.flowValue = ULLONG_MAX;
+        return result;
+    }
+    net_ = Net(verticesCount, net, source, sink);
+    init(verticesCount);
+    findMaxFlow();
+    MaxFlowDescription result = net_.returnFlowDescription();
+    net_.cleanUp();
+    cleanUp();
+    return result;
+}
+
+
 
 #include <vector>
 
@@ -170,8 +194,6 @@ void Net::cleanUp() {
 #include <vector>
 
 class PrePushFlowSimpleFor : public MaxFlowFinder {
-    Net net_;
-    
     std::vector<std::vector<InnerNetEdge>::iterator> firstUnsaturatedEdge_;
     std::vector<unsigned int> height_;
     std::vector<unsigned long long> excess_;
@@ -184,12 +206,11 @@ class PrePushFlowSimpleFor : public MaxFlowFinder {
     
     void cleanUp();
     
-    MaxFlowDescription findMaxFlowInitialised();
+    void init(unsigned int verticesCount);
     
+    void findMaxFlow();
 public:
     PrePushFlowSimpleFor();
-    
-    MaxFlowDescription findMaxFlow(unsigned int verticeCount, const std::vector<DirectedEdgeWithStart> &net, unsigned int source, unsigned int sink);
     
     virtual ~PrePushFlowSimpleFor() {
     }
@@ -204,15 +225,7 @@ public:
 PrePushFlowSimpleFor::PrePushFlowSimpleFor() {
 }
 
-MaxFlowDescription PrePushFlowSimpleFor::findMaxFlow(unsigned int verticesCount, const std::vector<DirectedEdgeWithStart> &net, unsigned int source, unsigned int sink) {
-    if (source == sink) {
-        MaxFlowDescription result;
-        result.flowValue = ULLONG_MAX;
-        return result;
-    }
-    
-    net_ = Net(verticesCount, net, source, sink);
-    
+void PrePushFlowSimpleFor::init(unsigned int verticesCount) {    
     height_.assign(verticesCount, 0);
     excess_.assign(verticesCount, 0);
     firstUnsaturatedEdge_.resize(verticesCount);
@@ -220,11 +233,9 @@ MaxFlowDescription PrePushFlowSimpleFor::findMaxFlow(unsigned int verticesCount,
     for (unsigned int v = 0; v < verticesCount; ++v) {
         firstUnsaturatedEdge_[v] = net_.graph[v].begin();
     }
-    
-    return findMaxFlowInitialised();
 }
 
-MaxFlowDescription PrePushFlowSimpleFor::findMaxFlowInitialised() {
+void PrePushFlowSimpleFor::findMaxFlow() {
     height_[net_.source] = net_.verticesCount;
     
     unsigned int excessedCount = 0;
@@ -248,11 +259,6 @@ MaxFlowDescription PrePushFlowSimpleFor::findMaxFlowInitialised() {
                 ++excessedCount;
         }
     }
-    
-    MaxFlowDescription result = net_.returnFlowDescription();
-    cleanUp();
-    
-    return result;
 }
 
 void PrePushFlowSimpleFor::discharge(unsigned int v) {
@@ -291,14 +297,13 @@ void PrePushFlowSimpleFor::push(unsigned int v, InnerNetEdge &e) {
 }
 
 void PrePushFlowSimpleFor::cleanUp() {
-    net_.cleanUp();
     height_.clear();
     excess_.clear();
     firstUnsaturatedEdge_.clear();
 }
 
-#ifndef _MALHOTA_KUMAR_MAHESHWARI_
-#define _MALHOTA_KUMAR_MAHESHWARI_
+#ifndef _MALHOTRA_KUMAR_MAHESHWARI_
+#define _MALHOTRA_KUMAR_MAHESHWARI_
 
 #include <vector>
 #include <climits>
@@ -309,9 +314,6 @@ class MalhotraKumarMaheshwari: public MaxFlowFinder {
         BACKWARD,
         DIRECTIONS,
     };
-    
-    Net net_;
-    
     
     std::vector<unsigned long long> potential_[DIRECTIONS];
     std::vector<bool> blocked_;
@@ -332,16 +334,14 @@ class MalhotraKumarMaheshwari: public MaxFlowFinder {
     
     void push(unsigned int v, InnerNetEdge &e, unsigned long long value);
     
-    MaxFlowDescription findMaxFlowInitialised();
-    
     unsigned long long phi(unsigned int v);
     
-    
+    void init(unsigned int verticesCount);
     
 public:
     MalhotraKumarMaheshwari();
     
-    MaxFlowDescription findMaxFlow(unsigned int verticesCount, const std::vector<DirectedEdgeWithStart> &net, unsigned int source, unsigned int sink);
+    void findMaxFlow();
     
     virtual ~MalhotraKumarMaheshwari() {
     }
@@ -355,20 +355,11 @@ public:
 MalhotraKumarMaheshwari::MalhotraKumarMaheshwari() {
 }
 
-MaxFlowDescription MalhotraKumarMaheshwari::findMaxFlow(unsigned int verticesCount, const std::vector<DirectedEdgeWithStart> &net, unsigned int source, unsigned int sink) {
-    if (source == sink) {
-        MaxFlowDescription result;
-        result.flowValue = ULLONG_MAX;
-        return result;
-    }
-    net_ = Net(verticesCount, net, source, sink);
-    
+void MalhotraKumarMaheshwari::init(unsigned int verticesCount) {
     blocked_.assign(verticesCount, false);
-        
-    return findMaxFlowInitialised();
 }
 
-MaxFlowDescription MalhotraKumarMaheshwari::findMaxFlowInitialised() {
+void MalhotraKumarMaheshwari::findMaxFlow() {
     while (BFS()) {
         countAllPotentials();
         bool notBlockedAvalible = true;
@@ -388,7 +379,8 @@ MaxFlowDescription MalhotraKumarMaheshwari::findMaxFlowInitialised() {
             
             pushVertice(minimalNotBlocked, FORWARD, pushValue);
             pushVertice(minimalNotBlocked, BACKWARD, pushValue);
-    
+
+            
             for (unsigned int z = 0; z < net_.graph[minimalNotBlocked].size(); ++z) {
                 InnerNetEdge &e = net_.graph[minimalNotBlocked][z];
                 if (distance_[e.to] == distance_[minimalNotBlocked] + 1) {
@@ -408,11 +400,6 @@ MaxFlowDescription MalhotraKumarMaheshwari::findMaxFlowInitialised() {
             }
         }
     }
-    MaxFlowDescription result = net_.returnFlowDescription();
-    
-    cleanUp();
-    
-    return result;
 }
 
 void MalhotraKumarMaheshwari::countAllPotentials() {
@@ -514,7 +501,6 @@ void MalhotraKumarMaheshwari::push(unsigned int v, InnerNetEdge &e, unsigned lon
 }
 
 void MalhotraKumarMaheshwari::cleanUp() {
-    net_.cleanUp();
     blocked_.clear();
     distance_.clear();
     for (unsigned int i = 0; i < DIRECTIONS; ++i) {
@@ -530,6 +516,7 @@ unsigned int MalhotraKumarMaheshwari::residue(const InnerNetEdge &e) {
 InnerNetEdge & MalhotraKumarMaheshwari::reverseEdge(const InnerNetEdge &e) {
     return net_.graph[e.to][e.reverse];
 }
+
 
 #ifndef _MAX_FLOW_FINDER_FABRIC_
 #define _MAX_FLOW_FINDER_FABRIC_
@@ -568,8 +555,8 @@ int main() {
         --from, --to;
         graph[i] = DirectedEdgeWithStart(from, to, capacity);
     }
-    MaxFlowFinder *maxFlowFinder = MaxFlowFinderFabric::getMaxFlowFinder(MaxFlowFinderFabric::PRE_PUSH_FLOW_SIMPLE_FOR);
-    MaxFlowDescription description = maxFlowFinder->findMaxFlow(n, graph, 0, n - 1);
+    MaxFlowFinder *maxFlowFinder = MaxFlowFinderFabric::getMaxFlowFinder(MaxFlowFinderFabric::MALHOTRA_KUMAR_MAHESHWARI);
+    MaxFlowDescription description = maxFlowFinder->run(n, graph, 0, n - 1);
     printf("%llu\n",  description.flowValue);
     for (unsigned int i = 0; i < description.description.size(); ++i) {
         printf("%u\n", description.description[i].flow);

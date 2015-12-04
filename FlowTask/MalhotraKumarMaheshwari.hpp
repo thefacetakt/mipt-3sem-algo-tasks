@@ -1,5 +1,5 @@
-#ifndef _MALHOTA_KUMAR_MAHESHWARI_
-#define _MALHOTA_KUMAR_MAHESHWARI_
+#ifndef _MALHOTRA_KUMAR_MAHESHWARI_
+#define _MALHOTRA_KUMAR_MAHESHWARI_
 
 #include <vector>
 #include <climits>
@@ -13,9 +13,6 @@ class MalhotraKumarMaheshwari: public MaxFlowFinder {
         BACKWARD,
         DIRECTIONS,
     };
-    
-    Net net_;
-    
     
     std::vector<unsigned long long> potential_[DIRECTIONS];
     std::vector<bool> blocked_;
@@ -36,16 +33,14 @@ class MalhotraKumarMaheshwari: public MaxFlowFinder {
     
     void push(unsigned int v, InnerNetEdge &e, unsigned long long value);
     
-    MaxFlowDescription findMaxFlowInitialised();
-    
     unsigned long long phi(unsigned int v);
     
-    
+    void init(unsigned int verticesCount);
     
 public:
     MalhotraKumarMaheshwari();
     
-    MaxFlowDescription findMaxFlow(unsigned int verticesCount, const std::vector<DirectedEdgeWithStart> &net, unsigned int source, unsigned int sink);
+    void findMaxFlow();
     
     virtual ~MalhotraKumarMaheshwari() {
     }

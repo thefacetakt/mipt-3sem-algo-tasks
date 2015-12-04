@@ -14,8 +14,8 @@ int main() {
         --from, --to;
         graph[i] = DirectedEdgeWithStart(from, to, capacity);
     }
-    MaxFlowFinder *maxFlowFinder = MaxFlowFinderFabric::getMaxFlowFinder(/*MaxFlowFinderFabric::PRE_PUSH_FLOW_SIMPLE_FOR*/ MaxFlowFinderFabric::MALHOTRA_KUMAR_MAHESHWARI);
-    MaxFlowDescription description = maxFlowFinder->findMaxFlow(n, graph, 0, n - 1);
+    MaxFlowFinder *maxFlowFinder = MaxFlowFinderFabric::getMaxFlowFinder(/*MaxFlowFinderFabric::PRE_PUSH_FLOW_SIMPLE_FOR*/ MaxFlowFinderFabric::PRE_PUSH_FLOW_SIMPLE_FOR);
+    MaxFlowDescription description = maxFlowFinder->run(n, graph, 0, n - 1);
     printf("%llu\n",  description.flowValue);
     delete maxFlowFinder;
     return 0;

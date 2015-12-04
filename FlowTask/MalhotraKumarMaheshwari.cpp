@@ -9,20 +9,11 @@
 MalhotraKumarMaheshwari::MalhotraKumarMaheshwari() {
 }
 
-MaxFlowDescription MalhotraKumarMaheshwari::findMaxFlow(unsigned int verticesCount, const std::vector<DirectedEdgeWithStart> &net, unsigned int source, unsigned int sink) {
-    if (source == sink) {
-        MaxFlowDescription result;
-        result.flowValue = ULLONG_MAX;
-        return result;
-    }
-    net_ = Net(verticesCount, net, source, sink);
-    
+void MalhotraKumarMaheshwari::init(unsigned int verticesCount) {
     blocked_.assign(verticesCount, false);
-        
-    return findMaxFlowInitialised();
 }
 
-MaxFlowDescription MalhotraKumarMaheshwari::findMaxFlowInitialised() {
+void MalhotraKumarMaheshwari::findMaxFlow() {
     while (BFS()) {
         countAllPotentials();
         bool notBlockedAvalible = true;
@@ -62,11 +53,6 @@ MaxFlowDescription MalhotraKumarMaheshwari::findMaxFlowInitialised() {
             }
         }
     }
-    MaxFlowDescription result = net_.returnFlowDescription();
-    
-    cleanUp();
-    
-    return result;
 }
 
 void MalhotraKumarMaheshwari::countAllPotentials() {
@@ -166,7 +152,6 @@ void MalhotraKumarMaheshwari::push(unsigned int v, InnerNetEdge &e, unsigned lon
 }
 
 void MalhotraKumarMaheshwari::cleanUp() {
-    net_.cleanUp();
     blocked_.clear();
     distance_.clear();
     for (unsigned int i = 0; i < DIRECTIONS; ++i) {

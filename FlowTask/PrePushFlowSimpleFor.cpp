@@ -9,15 +9,7 @@
 PrePushFlowSimpleFor::PrePushFlowSimpleFor() {
 }
 
-MaxFlowDescription PrePushFlowSimpleFor::findMaxFlow(unsigned int verticesCount, const std::vector<DirectedEdgeWithStart> &net, unsigned int source, unsigned int sink) {
-    if (source == sink) {
-        MaxFlowDescription result;
-        result.flowValue = ULLONG_MAX;
-        return result;
-    }
-    
-    net_ = Net(verticesCount, net, source, sink);
-    
+void PrePushFlowSimpleFor::init(unsigned int verticesCount) {    
     height_.assign(verticesCount, 0);
     excess_.assign(verticesCount, 0);
     firstUnsaturatedEdge_.resize(verticesCount);
@@ -25,11 +17,9 @@ MaxFlowDescription PrePushFlowSimpleFor::findMaxFlow(unsigned int verticesCount,
     for (unsigned int v = 0; v < verticesCount; ++v) {
         firstUnsaturatedEdge_[v] = net_.graph[v].begin();
     }
-    
-    return findMaxFlowInitialised();
 }
 
-MaxFlowDescription PrePushFlowSimpleFor::findMaxFlowInitialised() {
+void PrePushFlowSimpleFor::findMaxFlow() {
     height_[net_.source] = net_.verticesCount;
     
     unsigned int excessedCount = 0;
@@ -53,11 +43,6 @@ MaxFlowDescription PrePushFlowSimpleFor::findMaxFlowInitialised() {
                 ++excessedCount;
         }
     }
-    
-    MaxFlowDescription result = net_.returnFlowDescription();
-    cleanUp();
-    
-    return result;
 }
 
 void PrePushFlowSimpleFor::discharge(unsigned int v) {
@@ -95,7 +80,6 @@ void PrePushFlowSimpleFor::push(unsigned int v, InnerNetEdge &e) {
 }
 
 void PrePushFlowSimpleFor::cleanUp() {
-    net_.cleanUp();
     height_.clear();
     excess_.clear();
     firstUnsaturatedEdge_.clear();

@@ -7,8 +7,6 @@
 #include <vector>
 
 class PrePushFlowSimpleFor : public MaxFlowFinder {
-    Net net_;
-    
     std::vector<std::vector<InnerNetEdge>::iterator> firstUnsaturatedEdge_;
     std::vector<unsigned int> height_;
     std::vector<unsigned long long> excess_;
@@ -21,12 +19,11 @@ class PrePushFlowSimpleFor : public MaxFlowFinder {
     
     void cleanUp();
     
-    MaxFlowDescription findMaxFlowInitialised();
+    void init(unsigned int verticesCount);
     
+    void findMaxFlow();
 public:
     PrePushFlowSimpleFor();
-    
-    MaxFlowDescription findMaxFlow(unsigned int verticeCount, const std::vector<DirectedEdgeWithStart> &net, unsigned int source, unsigned int sink);
     
     virtual ~PrePushFlowSimpleFor() {
     }
