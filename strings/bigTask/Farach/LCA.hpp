@@ -25,6 +25,8 @@ private:
     
 public:
     
+    LCA();
+    
     LCA(const vector<pair<unsigned int, unsigned int> > &euler);
     
     

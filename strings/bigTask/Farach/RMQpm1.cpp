@@ -34,7 +34,7 @@ RMQpm1::RMQpm1(const vector<unsigned int> &elements) {
             if (i + j < n) {
                 decomposition.back()[j] = elements[i + j];
             }
-            if (j > 1 && decomposition.back()[j] > decomposition.back()[j - 1]) {
+            if (j >= 1 && decomposition.back()[j] > decomposition.back()[j - 1]) {
                 currentMask |= (1 << j);
             }
         }

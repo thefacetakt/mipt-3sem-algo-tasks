@@ -16,6 +16,9 @@ using std::min;
 using std::pair;
 using std::make_pair;
 
+LCA::LCA() {
+}
+
 LCA::LCA(const vector<pair<unsigned int, unsigned int> > &euler) {
     unsigned int n = (euler.size() + 1) / 2;
     vector <unsigned int> toRMQ(euler.size());

@@ -1,5 +1,296 @@
-#define _GLIBCXX_DEBUG
-#define _PRINT_DBG
+#ifndef _SPARSE_TABLE
+#define _SPARSE_TABLE
+
+
+#include <vector>
+#include <algorithm>
+#include <climits>
+#include <utility>
+
+using std::vector;
+using std::min;
+using std::pair;
+using std::make_pair;
+
+struct SparseTable {
+private:
+    vector<vector<pair<unsigned int, unsigned int> > > st;
+    vector<unsigned int> fastLog;
+    unsigned int n;
+    
+    void init();
+     
+public:
+    SparseTable(const vector<unsigned int> &elements);
+    SparseTable();
+    
+    unsigned int minimum(unsigned int i, unsigned int j);
+    
+    pair<unsigned int, unsigned int> operator[](unsigned int i) {
+        return st[0][i];
+    }
+};
+
+#endif
+
+
+#include <vector>
+#include <algorithm>
+#include <climits>
+#include <utility>
+
+using std::vector;
+using std::min;
+using std::pair;
+using std::make_pair;
+
+
+SparseTable::SparseTable() {
+}
+    
+SparseTable::SparseTable(const vector<unsigned int> &elements) {
+    n = elements.size();
+    fastLog.resize(n + 1);
+    fastLog[1] = 0;
+    for (unsigned int i = 2; i <= n; ++i) {
+        fastLog[i] = fastLog[i / 2] + 1;
+    }
+    st.resize(fastLog[n] + 1);
+    st[0].resize(n);
+    for (unsigned int i = 0; i < n; ++i) {
+        st[0][i] = make_pair(elements[i], i);
+    }
+    init();
+}
+
+void SparseTable::init() {
+    for (unsigned int k = 1; k <= fastLog[n]; ++k) {
+        st[k].resize(n - (1 << k) + 1);
+        for (unsigned int i = 0; i < st[k].size(); ++i) {
+            st[k][i] = min(st[k - 1][i], st[k - 1][i + (1 << (k - 1))]);
+        }
+    }
+}
+
+unsigned int SparseTable::minimum(unsigned int i, unsigned int j) {
+    if (j < i) {
+        return UINT_MAX;
+    }
+    unsigned int length = (j - i + 1);
+    return min(st[fastLog[length]][i], st[fastLog[length]][j - (1 << fastLog[length]) + 1]).second;
+}
+
+#ifndef _RMQpm1
+#define _RMQpm1
+
+#include <vector>
+#include <algorithm>
+#include <utility>
+#include <climits>
+#include <cstdio>
+
+using std::vector;
+using std::max;
+using std::min;
+using std::pair;
+using std::make_pair;
+
+struct RMQpm1 {
+private:
+    SparseTable st;
+    vector <unsigned int> elements;
+    vector <vector <pair<unsigned int, unsigned int> > > prefixMins;
+    vector <vector <pair<unsigned int, unsigned int> > > suffixMins;
+    unsigned int n;
+    unsigned int block;
+    vector <vector<vector<pair<int, unsigned int> > > > dp;
+    vector <unsigned int> type;
+    
+public:
+    RMQpm1();
+    RMQpm1(const vector<unsigned int> &elements);
+    
+    unsigned int minimum(unsigned int i, unsigned int j);
+};
+
+#endif
+
+#include <vector>
+#include <algorithm>
+#include <utility>
+#include <climits>
+#include <cstdio>
+
+using std::vector;
+using std::max;
+using std::min;
+using std::pair;
+using std::make_pair;
+
+RMQpm1::RMQpm1() {
+}
+
+RMQpm1::RMQpm1(const vector<unsigned int> &elements) {
+    this->elements = elements;
+    n = elements.size();
+    for (block = 1; (1 << block) <= n; ++block) {
+    }
+    block = max(block / 2, 1u);
+    vector <vector <unsigned int> > decomposition;
+    vector <unsigned int> stElements;
+    for (unsigned int i = 0; i < n; i += block) {
+        decomposition.push_back(vector<unsigned int>(block, 0));
+        prefixMins.push_back(vector <pair<unsigned int, unsigned int> >(block));
+        suffixMins.push_back(vector <pair<unsigned int, unsigned int> >(block));
+        
+        unsigned int currentMask = 0;
+        
+        for (unsigned int j = 0; j < block; ++j) {
+            if (i + j < n) {
+                decomposition.back()[j] = elements[i + j];
+            }
+            if (j >= 1 && decomposition.back()[j] > decomposition.back()[j - 1]) {
+                currentMask |= (1 << j);
+            }
+        }
+        currentMask >>= 1;
+        type.push_back(currentMask);
+        
+        prefixMins.back()[0] = make_pair(decomposition.back()[0], i + 0);
+        suffixMins.back()[block - 1] = make_pair(decomposition.back()[block - 1], i + block - 1);
+        for (unsigned int j = 1; j < block; ++j) {
+            prefixMins.back()[j] = min(prefixMins.back()[j - 1], make_pair(decomposition.back()[j], i + j));
+            suffixMins.back()[block - j - 1] = min(suffixMins.back()[block - j], make_pair(decomposition.back()[block - j - 1], i + block - j - 1));
+        }
+        stElements.push_back(prefixMins.back().back().first);
+    }
+    st = SparseTable(stElements);
+
+    dp.resize(1 << (block - 1));
+    
+    for (unsigned int i = 0; i < (1 << (block - 1)); ++i) {
+        dp[i].resize(block);
+        for (unsigned int length = 1; length <= block; ++length) {
+            dp[i][length - 1].resize(block - length + 2);
+            if (length == 1) {
+                for (unsigned int j = 0; j < block; ++j) {
+                    dp[i][length - 1][j] = make_pair((j == 0 ? 0 : dp[i][length - 1][j - 1].first + 2 * ((i >> (j - 1)) & 1) - 1), j);
+                }
+            } else {
+                for (unsigned int j = length - 2; j < block; ++j) {
+                    dp[i][length - 1][j - (length - 2)] = min(dp[i][0][j], dp[i][length - 2][j - (length - 2)]);
+                }
+            }
+        }
+    }
+}
+    
+unsigned int RMQpm1::minimum(unsigned int i, unsigned int j) {
+    if (j < i) {
+        return UINT_MAX;
+    }
+    if (i == j) {
+        return i;
+    }
+    unsigned int iBlock = i / block;
+    unsigned int jBlock = j / block;
+    if (iBlock != jBlock) {
+        pair<unsigned int, unsigned int> prefSufMin = min(suffixMins[iBlock][i % block], prefixMins[jBlock][j % block]);
+        if (iBlock + 1 > jBlock - 1) {
+            return prefSufMin.second;
+        } else {
+            unsigned int insideMinPos = st.minimum(iBlock + 1, jBlock - 1);
+            if (st[insideMinPos].first < prefSufMin.first) {
+                return prefixMins[insideMinPos][block - 1].second;
+            } else {
+                return prefSufMin.second;
+            }
+        }
+    } else {
+        return iBlock * block + dp[type[iBlock]][j - i][i % block].second;
+    }
+}
+
+#ifndef _LCA
+#define _LCA
+
+#include <vector>
+#include <algorithm>
+#include <utility>
+#include <climits>
+#include <cstdio>
+
+using std::vector;
+using std::max;
+using std::min;
+using std::pair;
+using std::make_pair;
+
+struct LCA {
+private:
+    vector <unsigned int> myEuler;
+    vector <unsigned int> first;
+    vector <unsigned int> last;
+    
+    RMQpm1 rmq;
+    
+public:
+    LCA();
+    
+    LCA(const vector<pair<unsigned int, unsigned int> > &euler);
+    
+    
+    unsigned int lca(unsigned int u, unsigned int v);
+};
+
+#endif
+
+#ifndef _LCA_CPP
+#define _LCA_CPP
+
+#include <vector>
+#include <algorithm>
+#include <utility>
+#include <climits>
+#include <cstdio>
+
+using std::vector;
+using std::max;
+using std::min;
+using std::pair;
+using std::make_pair;
+
+LCA::LCA() {
+}
+
+LCA::LCA(const vector<pair<unsigned int, unsigned int> > &euler) {
+    unsigned int n = (euler.size() + 1) / 2;
+    vector <unsigned int> toRMQ(euler.size());
+    myEuler.resize(euler.size());
+    first.assign(n, -1);
+    last.assign(n, -1);
+    for (unsigned int i = 0; i < euler.size(); ++i) {
+        if (first[euler[i].second] == -1) {
+            first[euler[i].second] = i;
+        }
+        last[euler[i].second] = i;
+        toRMQ[i] = euler[i].first;
+        myEuler[i] = euler[i].second;
+    }
+    
+    
+    rmq = RMQpm1(toRMQ);
+}
+
+
+unsigned int LCA::lca(unsigned int u, unsigned int v) {
+    return myEuler[rmq.minimum(min(first[u], first[v]), max(last[u], last[v]))];
+}
+
+#endif
+
+// #define _GLIBCXX_DEBUG
+// #define _PRINT_DBG
 
 #include <cstdio>
 #include <iostream>
@@ -10,7 +301,6 @@
 #include <cassert>
 #include <functional>
 #include <string>
-#include "LCA.hpp"
 
 using std::vector;
 using std::make_pair;
@@ -846,58 +1136,67 @@ long long dfs(SuffixTree &t, int v) {
     return sum;
 }
 
-vector <int> res;
+#include <string>
 
-void randGen(int length, int alph, int tests) {
-    for (int i = 0; i < tests; ++i) {
-        res.resize(length);
-        for (int j = 0; j < length; ++j) {
-            res[j] = rand() % alph;
-            printf("%d ", res[j]);
+struct SuffixTreeWithLcp {
+    SuffixTree tree;
+    vector <pair<unsigned int, unsigned int> > euler;
+    vector <unsigned int> realNode;
+    vector <unsigned int> irrealNode;
+    LCA lcaGetter;
+    SuffixTreeWithLcp(const vector <int> &input) {
+        tree = buildSuffixTree(input);;
+        buildEuler(tree, euler, realNode);
+        irrealNode.resize(input.size() + 1);
+        for (unsigned int i = 0; i < realNode.size(); ++i) {
+            int leaf = tree.nodes[realNode[i]].leaf; 
+            if (leaf != -1) {
+                irrealNode[leaf] = i;
+            }
         }
-        printf("\n");
-        buildSuffixTree(res);
+        lcaGetter = LCA(euler);
     }
-}
+    
+    unsigned int lcp(unsigned int i, unsigned int j) {
+        return tree.nodes[realNode[lcaGetter.lca(irrealNode[i], irrealNode[j])]].depth;
+    }
+    
+    unsigned int maxStart(unsigned int i, unsigned int k) {
+        unsigned int maximum = min(k - 1, lcp(i, i + 1));
 
-void gen(int i, int n) {
-    if (i == n) {
-        for (int j = 0; j < n; ++j) {
-            printf("%d ", res[j]);
+        for (unsigned int j = 2; j < k; ++j) {
+            maximum = max(maximum, min(k - j, lcp(i, i + j)));
         }
-        printf("\n");
-        buildSuffixTree(res);
-        return;
+        return k - min(k, maximum);
     }
-    for (int j = 0; j <= 2; ++j) {
-        res.push_back(j);
-        gen(i + 1, n);
-        res.pop_back();
-    }
-}
-
-void inputDebug() {
-    int n;
-    scanf("%d", &n);
-    vector <int> input(n);
-    for (unsigned int i = 0; i < n; ++i) 
-        scanf("%d", &input[i]);
-    buildSuffixTree(input);
-}
+};
 
 int main() {
-    inputDebug();
-    randGen(50, 26, 100000);
-    return 0;
     std::string s;
-    std::cin >> s;
+    int k;
+    std::cin >> k >> s;
+    unsigned int n = s.size();
+    s += s;
+    vector <int> input(k);
+    for (unsigned int i = 0; i < k; ++i) {
+        input[i] = s[i] - 'a';
+    }
+    SuffixTree tree = buildSuffixTree(input);
+    unsigned long long start = dfs(tree, tree.root);
+    printf("%llu ", start);
     
-    int n = s.size();
-    vector <int> x(n);
-    for (int i = 0; i < n; ++i)
-        x[i] = s[i] - 'a';
-    SuffixTree y = buildSuffixTree(x);
-    std::cout << dfs(y, y.root) << std::endl;
+    input.resize(2 * n);
+    for (unsigned int i = k; i < 2 * n; ++i) {
+        input[i] = s[i % n] - 'a';
+    }
+    vector <int> reverseInput(input.rbegin(), input.rend());
+    SuffixTreeWithLcp lcpTree(input), reverseLcpTree(reverseInput);
+    
+    for (unsigned int i = 1; i < n; ++i) {
+        start -= lcpTree.maxStart(i - 1, k); 
+        start += reverseLcpTree.maxStart(2 * n - i - k, k);
+        printf("%llu ", start);
+    }
+    printf("\n");
     return 0;
-    
 }
