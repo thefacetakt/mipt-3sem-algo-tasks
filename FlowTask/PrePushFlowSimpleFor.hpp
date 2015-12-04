@@ -2,19 +2,17 @@
 #define _PRE_PUSH_FLOW_SIMPLE_FOR_
 
 #include "Edges.hpp"
+#include "Net.hpp"
 #include "MaxFlowFinder.hpp"
 #include <vector>
 
 class PrePushFlowSimpleFor : public MaxFlowFinder {
-    std::vector<std::vector<InnerNetEdge> > graph;
-    std::vector<std::vector<InnerNetEdge>::iterator> firstUnsaturatedEdge;
-    std::vector<unsigned int> height;
-    std::vector<unsigned long long> excess;
-    unsigned int source;
-    unsigned int sink;
-    unsigned int verticeCount;
-    unsigned int edgesCount;
+    Net net_;
     
+    std::vector<std::vector<InnerNetEdge>::iterator> firstUnsaturatedEdge_;
+    std::vector<unsigned int> height_;
+    std::vector<unsigned long long> excess_;
+
     void discharge(unsigned int v);
     
     void relabel(unsigned int v);

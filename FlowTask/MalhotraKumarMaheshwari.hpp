@@ -14,21 +14,17 @@ class MalhotraKumarMaheshwari: public MaxFlowFinder {
         DIRECTIONS,
     };
     
-    std::vector<std::vector<InnerNetEdge> > graph;
-    std::vector<unsigned long long> potential[DIRECTIONS];
-    std::vector<bool> blocked;
-    std::vector<unsigned int> distance;
-    std::vector<std::vector<InnerNetEdge>::iterator> firstUnsaturatedEdge[DIRECTIONS];
+    Net net_;
     
     
-    unsigned int source;
-    unsigned int sink;
-    unsigned int verticesCount;
-    unsigned int edgesCount;
+    std::vector<unsigned long long> potential_[DIRECTIONS];
+    std::vector<bool> blocked_;
+    std::vector<unsigned int> distance_;
+    std::vector<std::vector<InnerNetEdge>::iterator> firstUnsaturatedEdge_[DIRECTIONS];
     
     void cleanUp();
     
-    unsigned int cf(const InnerNetEdge &e);
+    unsigned int residue(const InnerNetEdge &e);
     
     InnerNetEdge &reverseEdge(const InnerNetEdge &e);
     
@@ -49,7 +45,7 @@ class MalhotraKumarMaheshwari: public MaxFlowFinder {
 public:
     MalhotraKumarMaheshwari();
     
-    MaxFlowDescription findMaxFlow(unsigned int verticeCount, const std::vector<DirectedEdgeWithStart> &net, unsigned int source, unsigned int sink);
+    MaxFlowDescription findMaxFlow(unsigned int verticesCount, const std::vector<DirectedEdgeWithStart> &net, unsigned int source, unsigned int sink);
     
     virtual ~MalhotraKumarMaheshwari() {
     }

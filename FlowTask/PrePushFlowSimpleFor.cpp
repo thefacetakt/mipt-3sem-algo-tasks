@@ -9,93 +9,68 @@
 PrePushFlowSimpleFor::PrePushFlowSimpleFor() {
 }
 
-MaxFlowDescription PrePushFlowSimpleFor::findMaxFlow(unsigned int verticeCount, const std::vector<DirectedEdgeWithStart> &net, unsigned int source, unsigned int sink) {
+MaxFlowDescription PrePushFlowSimpleFor::findMaxFlow(unsigned int verticesCount, const std::vector<DirectedEdgeWithStart> &net, unsigned int source, unsigned int sink) {
     if (source == sink) {
         MaxFlowDescription result;
         result.flowValue = ULLONG_MAX;
         return result;
     }
     
-    this->edgesCount = net.size();
-    this->verticeCount = verticeCount;
-    this->source = source;
-    this->sink = sink;
+    net_ = Net(verticesCount, net, source, sink);
     
-    graph.resize(verticeCount);
-    height.assign(verticeCount, 0);
-    excess.assign(verticeCount, 0);
-    firstUnsaturatedEdge.resize(verticeCount);
+    height_.assign(verticesCount, 0);
+    excess_.assign(verticesCount, 0);
+    firstUnsaturatedEdge_.resize(verticesCount);
     
-    for (unsigned int i = 0; i < net.size(); ++i) {
-        const DirectedEdgeWithStart &e = net[i];
-        
-        graph[e.from].push_back(InnerNetEdge(e.to, e.capacity, graph[e.to].size(), i));
-        graph[e.to].push_back(InnerNetEdge(e.from, 0, graph[e.from].size() - 1));
-    }
-    
-    for (unsigned int v = 0; v < verticeCount; ++v) {
-        firstUnsaturatedEdge[v] = graph[v].begin();
+    for (unsigned int v = 0; v < verticesCount; ++v) {
+        firstUnsaturatedEdge_[v] = net_.graph[v].begin();
     }
     
     return findMaxFlowInitialised();
 }
 
 MaxFlowDescription PrePushFlowSimpleFor::findMaxFlowInitialised() {
-    height[source] = verticeCount;
+    height_[net_.source] = net_.verticesCount;
     
     unsigned int excessedCount = 0;
 
-    for (auto &e: graph[source]) {
+    for (auto &e: net_.graph[net_.source]) {
         e.flow = e.capacity;
-        if (excess[e.to] == 0 && e.capacity)
+        if (excess_[e.to] == 0 && e.capacity)
             ++excessedCount;
-        excess[e.to] += e.capacity;
-        graph[e.to][e.reverse].flow -= e.capacity;
+        excess_[e.to] += e.capacity;
+        net_.graph[e.to][e.reverse].flow -= e.capacity;
     }
     
     while(excessedCount) {
-        for (unsigned int v = 0; v < verticeCount; ++v) {
-            if (v != sink && v != source)
+        for (unsigned int v = 0; v < net_.verticesCount; ++v) {
+            if (v != net_.sink && v != net_.source)
                 discharge(v);
         }
         excessedCount = 0;
-        for (unsigned int v = 0; v < verticeCount; ++v) {
-            if (v != sink && v != source && excess[v])
+        for (unsigned int v = 0; v < net_.verticesCount; ++v) {
+            if (v != net_.sink && v != net_.source && excess_[v])
                 ++excessedCount;
         }
     }
     
-    MaxFlowDescription result;
-    result.flowValue = 0;
-    for (auto const &e: graph[source]) {
-        result.flowValue += e.flow;
-    }
-    
-    result.description.resize(edgesCount);
-    
-    for (unsigned int v = 0; v < verticeCount; ++v) {
-        for (auto const &e: graph[v]) {
-            if (e.number != -1) {
-                result.description[e.number] = FlowEdge(e.to, e.flow);
-            }
-        }
-    }
+    MaxFlowDescription result = net_.returnFlowDescription();
     cleanUp();
     
     return result;
 }
 
 void PrePushFlowSimpleFor::discharge(unsigned int v) {
-    while (excess[v]) {
-        if (firstUnsaturatedEdge[v] == graph[v].end()) {
+    while (excess_[v]) {
+        if (firstUnsaturatedEdge_[v] == net_.graph[v].end()) {
             relabel(v);
-            firstUnsaturatedEdge[v] = graph[v].begin();
+            firstUnsaturatedEdge_[v] = net_.graph[v].begin();
         } else {
-            InnerNetEdge &e = *firstUnsaturatedEdge[v];
-            if (e.capacity - e.flow > 0 && height[e.to] + 1 == height[v]) {
+            InnerNetEdge &e = *firstUnsaturatedEdge_[v];
+            if (e.capacity - e.flow > 0 && height_[e.to] + 1 == height_[v]) {
                 push(v, e);
             } else {
-                ++firstUnsaturatedEdge[v];
+                ++firstUnsaturatedEdge_[v];
             }
         }
     }
@@ -103,26 +78,25 @@ void PrePushFlowSimpleFor::discharge(unsigned int v) {
 
 void PrePushFlowSimpleFor::relabel(unsigned int v) {
     unsigned int currentHeight = UINT_MAX;
-    for (auto const &e: graph[v]) {
+    for (auto const &e: net_.graph[v]) {
         if (e.capacity - e.flow > 0) {
-            currentHeight = std::min(currentHeight, height[e.to]);
+            currentHeight = std::min(currentHeight, height_[e.to]);
         }
     }
-    height[v] = currentHeight + 1;
+    height_[v] = currentHeight + 1;
 }
 
 void PrePushFlowSimpleFor::push(unsigned int v, InnerNetEdge &e) {
-    long long pushValue = std::min(static_cast<unsigned long long> (e.capacity - e.flow), excess[v]);
-    excess[v] -= pushValue;
-    excess[e.to] += pushValue;
+    long long pushValue = std::min(static_cast<unsigned long long> (e.capacity - e.flow), excess_[v]);
+    excess_[v] -= pushValue;
+    excess_[e.to] += pushValue;
     e.flow += pushValue;
-    graph[e.to][e.reverse].flow -= pushValue;
+    net_.graph[e.to][e.reverse].flow -= pushValue;
 }
 
 void PrePushFlowSimpleFor::cleanUp() {
-    source = sink = verticeCount = edgesCount = 0;
-    graph.clear();
-    height.clear();
-    excess.clear();
-    firstUnsaturatedEdge.clear();
+    net_.cleanUp();
+    height_.clear();
+    excess_.clear();
+    firstUnsaturatedEdge_.clear();
 }

@@ -91,21 +91,91 @@ public:
 
 #endif
 
+#ifndef _NET
+#define _NET
+
+#include <vector>
+
+struct Net {
+    std::vector<std::vector<InnerNetEdge> > graph;
+    unsigned int source;
+    unsigned int sink;
+    unsigned int verticesCount;
+    unsigned int edgesCount;
+    
+    Net();
+    
+    Net(unsigned int verticeCount, const std::vector<DirectedEdgeWithStart> &net, unsigned int source, unsigned int sink);
+    
+    MaxFlowDescription returnFlowDescription();
+    
+    void cleanUp();
+};
+
+#endif
+
+#include <vector>
+
+Net::Net() {
+}
+
+Net::Net(unsigned int verticesCount, const std::vector<DirectedEdgeWithStart> &net, unsigned int source, unsigned int sink) {
+    this->edgesCount = net.size();
+    this->verticesCount = verticesCount;
+    this->source = source;
+    this->sink = sink;
+    
+    graph.resize(verticesCount);
+    
+    for (unsigned int i = 0; i < net.size(); ++i) {
+        const DirectedEdgeWithStart &e = net[i];
+        
+        graph[e.from].push_back(InnerNetEdge(e.to, e.capacity, graph[e.to].size(), i));
+        graph[e.to].push_back(InnerNetEdge(e.from, 0, graph[e.from].size() - 1));
+    }
+}
+    
+MaxFlowDescription Net::returnFlowDescription() {
+    MaxFlowDescription result;
+    result.flowValue = 0;
+    for (unsigned int z = 0; z < graph[source].size(); ++z) {
+        InnerNetEdge &e = graph[source][z];
+        result.flowValue += e.flow;
+    }
+    
+    result.description.resize(edgesCount);
+    
+    for (unsigned int v = 0; v < verticesCount; ++v) {
+        for (unsigned int z = 0; z < graph[v].size(); ++z) {
+            InnerNetEdge &e = graph[v][z];
+            if (e.number != -1) {
+                result.description[e.number] = FlowEdge(e.to, e.flow);
+            }
+        }
+    }
+    return result;
+}
+
+void Net::cleanUp() {
+    source = sink = verticesCount = edgesCount = 0;
+    graph.clear();
+}
+
+
+
+
 #ifndef _PRE_PUSH_FLOW_SIMPLE_FOR_
 #define _PRE_PUSH_FLOW_SIMPLE_FOR_
 
 #include <vector>
 
 class PrePushFlowSimpleFor : public MaxFlowFinder {
-    std::vector<std::vector<InnerNetEdge> > graph;
-    std::vector<std::vector<InnerNetEdge>::iterator> firstUnsaturatedEdge;
-    std::vector<unsigned int> height;
-    std::vector<unsigned long long> excess;
-    unsigned int source;
-    unsigned int sink;
-    unsigned int verticeCount;
-    unsigned int edgesCount;
+    Net net_;
     
+    std::vector<std::vector<InnerNetEdge>::iterator> firstUnsaturatedEdge_;
+    std::vector<unsigned int> height_;
+    std::vector<unsigned long long> excess_;
+
     void discharge(unsigned int v);
     
     void relabel(unsigned int v);
@@ -134,90 +204,68 @@ public:
 PrePushFlowSimpleFor::PrePushFlowSimpleFor() {
 }
 
-MaxFlowDescription PrePushFlowSimpleFor::findMaxFlow(unsigned int verticeCount, const std::vector<DirectedEdgeWithStart> &net, unsigned int source, unsigned int sink) {
-    this->edgesCount = net.size();
-    this->verticeCount = verticeCount;
-    this->source = source;
-    this->sink = sink;
-    
-    graph.resize(verticeCount);
-    height.assign(verticeCount, 0);
-    excess.assign(verticeCount, 0);
-    firstUnsaturatedEdge.resize(verticeCount);
-    
-    for (unsigned int i = 0; i < net.size(); ++i) {
-        const DirectedEdgeWithStart &e = net[i];
-        
-        graph[e.from].push_back(InnerNetEdge(e.to, e.capacity, graph[e.to].size(), i));
-        graph[e.to].push_back(InnerNetEdge(e.from, 0, graph[e.from].size() - 1));
+MaxFlowDescription PrePushFlowSimpleFor::findMaxFlow(unsigned int verticesCount, const std::vector<DirectedEdgeWithStart> &net, unsigned int source, unsigned int sink) {
+    if (source == sink) {
+        MaxFlowDescription result;
+        result.flowValue = ULLONG_MAX;
+        return result;
     }
     
-    for (unsigned int v = 0; v < verticeCount; ++v) {
-        firstUnsaturatedEdge[v] = graph[v].begin();
+    net_ = Net(verticesCount, net, source, sink);
+    
+    height_.assign(verticesCount, 0);
+    excess_.assign(verticesCount, 0);
+    firstUnsaturatedEdge_.resize(verticesCount);
+    
+    for (unsigned int v = 0; v < verticesCount; ++v) {
+        firstUnsaturatedEdge_[v] = net_.graph[v].begin();
     }
     
     return findMaxFlowInitialised();
 }
 
 MaxFlowDescription PrePushFlowSimpleFor::findMaxFlowInitialised() {
-    height[source] = verticeCount;
+    height_[net_.source] = net_.verticesCount;
     
     unsigned int excessedCount = 0;
-
-    for (int i = 0; i < graph[source].size(); ++i) {
-        InnerNetEdge &e = graph[source][i];
+    for (unsigned int z = 0; z < net_.graph[net_.source].size(); ++z) {
+        InnerNetEdge &e = net_.graph[net_.source][z];
         e.flow = e.capacity;
-        if (excess[e.to] == 0 && e.capacity)
+        if (excess_[e.to] == 0 && e.capacity)
             ++excessedCount;
-        excess[e.to] += e.capacity;
-        graph[e.to][e.reverse].flow -= e.capacity;
+        excess_[e.to] += e.capacity;
+        net_.graph[e.to][e.reverse].flow -= e.capacity;
     }
     
     while(excessedCount) {
-        for (unsigned int v = 0; v < verticeCount; ++v) {
-            if (v != sink && v != source)
+        for (unsigned int v = 0; v < net_.verticesCount; ++v) {
+            if (v != net_.sink && v != net_.source)
                 discharge(v);
         }
         excessedCount = 0;
-        for (unsigned int v = 0; v < verticeCount; ++v) {
-            if (v != sink && v != source && excess[v])
+        for (unsigned int v = 0; v < net_.verticesCount; ++v) {
+            if (v != net_.sink && v != net_.source && excess_[v])
                 ++excessedCount;
         }
     }
     
-    MaxFlowDescription result;
-    result.flowValue = 0;
-    for (int i = 0; i < graph[source].size(); ++i) {
-        const InnerNetEdge &e = graph[source][i];
-        result.flowValue += e.flow;
-    }
-    
-    result.description.resize(edgesCount);
-    
-    for (unsigned int v = 0; v < verticeCount; ++v) {
-        for (int i = 0; i < graph[v].size(); ++i) {
-        const InnerNetEdge &e = graph[v][i];
-            if (e.number != -1) {
-                result.description[e.number] = FlowEdge(e.to, e.flow);
-            }
-        }
-    }
+    MaxFlowDescription result = net_.returnFlowDescription();
     cleanUp();
     
     return result;
 }
 
 void PrePushFlowSimpleFor::discharge(unsigned int v) {
-    while (excess[v]) {
-        if (firstUnsaturatedEdge[v] == graph[v].end()) {
+    while (excess_[v]) {
+        if (firstUnsaturatedEdge_[v] == net_.graph[v].end()) {
             relabel(v);
-            firstUnsaturatedEdge[v] = graph[v].begin();
+            firstUnsaturatedEdge_[v] = net_.graph[v].begin();
         } else {
-            InnerNetEdge &e = *firstUnsaturatedEdge[v];
-            if (e.capacity - e.flow > 0 && height[e.to] + 1 == height[v]) {
+            InnerNetEdge &e = *firstUnsaturatedEdge_[v];
+            if (e.capacity - e.flow > 0 && height_[e.to] + 1 == height_[v]) {
                 push(v, e);
             } else {
-                ++firstUnsaturatedEdge[v];
+                ++firstUnsaturatedEdge_[v];
             }
         }
     }
@@ -225,29 +273,28 @@ void PrePushFlowSimpleFor::discharge(unsigned int v) {
 
 void PrePushFlowSimpleFor::relabel(unsigned int v) {
     unsigned int currentHeight = UINT_MAX;
-    for (int i = 0; i < graph[v].size(); ++i) {
-        const InnerNetEdge &e = graph[v][i];
+    for (unsigned int z = 0; z < net_.graph[v].size(); ++z) {
+        InnerNetEdge &e = net_.graph[v][z];
         if (e.capacity - e.flow > 0) {
-            currentHeight = std::min(currentHeight, height[e.to]);
+            currentHeight = std::min(currentHeight, height_[e.to]);
         }
     }
-    height[v] = currentHeight + 1;
+    height_[v] = currentHeight + 1;
 }
 
 void PrePushFlowSimpleFor::push(unsigned int v, InnerNetEdge &e) {
-    long long pushValue = std::min(static_cast<unsigned long long> (e.capacity - e.flow), excess[v]);
-    excess[v] -= pushValue;
-    excess[e.to] += pushValue;
+    long long pushValue = std::min(static_cast<unsigned long long> (e.capacity - e.flow), excess_[v]);
+    excess_[v] -= pushValue;
+    excess_[e.to] += pushValue;
     e.flow += pushValue;
-    graph[e.to][e.reverse].flow -= pushValue;
+    net_.graph[e.to][e.reverse].flow -= pushValue;
 }
 
 void PrePushFlowSimpleFor::cleanUp() {
-    source = sink = verticeCount = edgesCount = 0;
-    graph.clear();
-    height.clear();
-    excess.clear();
-    firstUnsaturatedEdge.clear();
+    net_.cleanUp();
+    height_.clear();
+    excess_.clear();
+    firstUnsaturatedEdge_.clear();
 }
 
 #ifndef _MALHOTA_KUMAR_MAHESHWARI_
@@ -263,21 +310,17 @@ class MalhotraKumarMaheshwari: public MaxFlowFinder {
         DIRECTIONS,
     };
     
-    std::vector<std::vector<InnerNetEdge> > graph;
-    std::vector<unsigned long long> potential[DIRECTIONS];
-    std::vector<bool> blocked;
-    std::vector<unsigned int> distance;
-    std::vector<std::vector<InnerNetEdge>::iterator> firstUnsaturatedEdge[DIRECTIONS];
+    Net net_;
     
     
-    unsigned int source;
-    unsigned int sink;
-    unsigned int verticesCount;
-    unsigned int edgesCount;
+    std::vector<unsigned long long> potential_[DIRECTIONS];
+    std::vector<bool> blocked_;
+    std::vector<unsigned int> distance_;
+    std::vector<std::vector<InnerNetEdge>::iterator> firstUnsaturatedEdge_[DIRECTIONS];
     
     void cleanUp();
     
-    unsigned int cf(const InnerNetEdge &e);
+    unsigned int residue(const InnerNetEdge &e);
     
     InnerNetEdge &reverseEdge(const InnerNetEdge &e);
     
@@ -298,7 +341,7 @@ class MalhotraKumarMaheshwari: public MaxFlowFinder {
 public:
     MalhotraKumarMaheshwari();
     
-    MaxFlowDescription findMaxFlow(unsigned int verticeCount, const std::vector<DirectedEdgeWithStart> &net, unsigned int source, unsigned int sink);
+    MaxFlowDescription findMaxFlow(unsigned int verticesCount, const std::vector<DirectedEdgeWithStart> &net, unsigned int source, unsigned int sink);
     
     virtual ~MalhotraKumarMaheshwari() {
     }
@@ -312,26 +355,15 @@ public:
 MalhotraKumarMaheshwari::MalhotraKumarMaheshwari() {
 }
 
-MaxFlowDescription MalhotraKumarMaheshwari::findMaxFlow(unsigned int verticeCount, const std::vector<DirectedEdgeWithStart> &net, unsigned int source, unsigned int sink) {
+MaxFlowDescription MalhotraKumarMaheshwari::findMaxFlow(unsigned int verticesCount, const std::vector<DirectedEdgeWithStart> &net, unsigned int source, unsigned int sink) {
     if (source == sink) {
         MaxFlowDescription result;
         result.flowValue = ULLONG_MAX;
         return result;
     }
+    net_ = Net(verticesCount, net, source, sink);
     
-    this->source = source;
-    this->sink = sink;
-    this->verticesCount = verticeCount;
-    this->edgesCount = net.size();
-    
-    graph.resize(verticeCount);
-    blocked.assign(verticeCount, false);
-    for (unsigned int i = 0; i < net.size(); ++i) {
-        const DirectedEdgeWithStart &e = net[i];
-        
-        graph[e.from].push_back(InnerNetEdge(e.to, e.capacity, graph[e.to].size(), i));
-        graph[e.to].push_back(InnerNetEdge(e.from, 0, graph[e.from].size() - 1));
-    }
+    blocked_.assign(verticesCount, false);
         
     return findMaxFlowInitialised();
 }
@@ -346,7 +378,7 @@ MaxFlowDescription MalhotraKumarMaheshwari::findMaxFlowInitialised() {
             unsigned int minimalNotBlocked = 0;
             
             
-            for (unsigned int v = 0; v < verticesCount; ++v) {
+            for (unsigned int v = 0; v < net_.verticesCount; ++v) {
                 if (phi(v) < phi(minimalNotBlocked)) {
                     minimalNotBlocked = v;
                 }
@@ -356,71 +388,57 @@ MaxFlowDescription MalhotraKumarMaheshwari::findMaxFlowInitialised() {
             
             pushVertice(minimalNotBlocked, FORWARD, pushValue);
             pushVertice(minimalNotBlocked, BACKWARD, pushValue);
-
-            for (unsigned int i = 0; i < graph[minimalNotBlocked].size(); ++i) {
-                const InnerNetEdge &e = graph[minimalNotBlocked][i];
-                if (distance[e.to] == distance[minimalNotBlocked] + 1) {
-                    potential[BACKWARD][e.to] -= cf(e);
+    
+            for (unsigned int z = 0; z < net_.graph[minimalNotBlocked].size(); ++z) {
+                InnerNetEdge &e = net_.graph[minimalNotBlocked][z];
+                if (distance_[e.to] == distance_[minimalNotBlocked] + 1) {
+                    potential_[BACKWARD][e.to] -= residue(e);
                 }
-                if (distance[minimalNotBlocked] == distance[e.to] + 1) {
-                    potential[FORWARD][e.to] -= cf(reverseEdge(e));
+                if (distance_[minimalNotBlocked] == distance_[e.to] + 1) {
+                    potential_[FORWARD][e.to] -= residue(reverseEdge(e));
                 }
             }
             
-            blocked[minimalNotBlocked] = true;
+            blocked_[minimalNotBlocked] = true;
             
-            for (unsigned int v = 0; v < verticesCount; ++v) {
-                if (!blocked[v]) {
+            for (unsigned int v = 0; v < net_.verticesCount; ++v) {
+                if (!blocked_[v]) {
                     notBlockedAvalible = true;
                 }
             }
         }
     }
-    MaxFlowDescription result;
-    result.flowValue = 0;
-    for (unsigned int i = 0; i < graph[source].size(); ++i) {
-        const InnerNetEdge &e = graph[source][i];
-        result.flowValue += e.flow;
-    }
+    MaxFlowDescription result = net_.returnFlowDescription();
     
-    result.description.resize(edgesCount);
-    
-    for (unsigned int v = 0; v < verticesCount; ++v) {
-        for (unsigned int i = 0; i < graph[v].size(); ++i) {
-            const InnerNetEdge &e = graph[v][i];
-            if (e.number != -1) {
-                result.description[e.number] = FlowEdge(e.to, e.flow);
-            }
-        }
-    }
     cleanUp();
+    
     return result;
 }
 
 void MalhotraKumarMaheshwari::countAllPotentials() {
-    blocked.assign(verticesCount, false);
+    blocked_.assign(net_.verticesCount, false);
     for (unsigned int i = 0; i < DIRECTIONS; ++i) {
-        potential[i].assign(verticesCount, 0);
+        potential_[i].assign(net_.verticesCount, 0);
         
-        firstUnsaturatedEdge[i].resize(verticesCount);
+        firstUnsaturatedEdge_[i].resize(net_.verticesCount);
         
-        for (unsigned int v = 0; v < verticesCount; ++v) {
-            firstUnsaturatedEdge[i][v] = graph[v].begin();
+        for (unsigned int v = 0; v < net_.verticesCount; ++v) {
+            firstUnsaturatedEdge_[i][v] = net_.graph[v].begin();
         }
     }
     
-    for (unsigned int v = 0; v < verticesCount; ++v) {
-        if (distance[v] >= distance[sink] && v != sink) {
-            blocked[v] = true;
+    for (unsigned int v = 0; v < net_.verticesCount; ++v) {
+        if (distance_[v] >= distance_[net_.sink] && v != net_.sink) {
+            blocked_[v] = true;
         }
     }
     
-    for (unsigned int v = 0; v < verticesCount; ++v) {
-        for (unsigned int i = 0; i < graph[v].size(); ++i) {
-            const InnerNetEdge &e = graph[v][i];
-            if (cf(e) > 0 && distance[e.to] == distance[v] + 1 && !blocked[e.to]) {
-                potential[FORWARD][v] += cf(e);
-                potential[BACKWARD][e.to] += cf(e);
+    for (unsigned int v = 0; v < net_.verticesCount; ++v) {
+        for (unsigned int z = 0; z < net_.graph[v].size(); ++z) {
+            InnerNetEdge &e = net_.graph[v][z];
+            if (residue(e) > 0 && distance_[e.to] == distance_[v] + 1 && !blocked_[e.to]) {
+                potential_[FORWARD][v] += residue(e);
+                potential_[BACKWARD][e.to] += residue(e);
             }
         }
     }
@@ -428,45 +446,45 @@ void MalhotraKumarMaheshwari::countAllPotentials() {
 
 bool MalhotraKumarMaheshwari::BFS() {
     std::queue<unsigned int> q;
-    q.push(source);
-    distance.assign(verticesCount, UINT_MAX);
-    distance[source] = 0;
+    q.push(net_.source);
+    distance_.assign(net_.verticesCount, UINT_MAX);
+    distance_[net_.source] = 0;
     while (!q.empty()) {
         unsigned int v = q.front();
         q.pop();
-        for (unsigned int i = 0; i < graph[v].size(); ++i) {
-            const InnerNetEdge &e = graph[v][i];
-            if (cf(e) > 0 && distance[e.to] > distance[v] + 1) {
-                distance[e.to] = distance[v] + 1;
+        for (unsigned int z = 0; z < net_.graph[v].size(); ++z) {
+            InnerNetEdge &e = net_.graph[v][z];
+            if (residue(e) > 0 && distance_[e.to] > distance_[v] + 1) {
+                distance_[e.to] = distance_[v] + 1;
                 q.push(e.to);
             }
         }
     }
-    return (distance[sink] != UINT_MAX);
+    return (distance_[net_.sink] != UINT_MAX);
 }
 
 unsigned long long MalhotraKumarMaheshwari::phi(unsigned int v) {
-    if (blocked[v])
+    if (blocked_[v])
         return ULLONG_MAX;
-    if (v == source)
-        return potential[FORWARD][v];
-    if (v == sink)
-        return potential[BACKWARD][v];
+    if (v == net_.source)
+        return potential_[FORWARD][v];
+    if (v == net_.sink)
+        return potential_[BACKWARD][v];
     
-    return std::min(potential[FORWARD][v], potential[BACKWARD][v]);
+    return std::min(potential_[FORWARD][v], potential_[BACKWARD][v]);
 }
 
 void MalhotraKumarMaheshwari::pushVertice(unsigned int v, EDirections direction, unsigned long long value) {
-    std::vector<unsigned long long> pushValue(verticesCount, 0);
+    std::vector<unsigned long long> pushValue(net_.verticesCount, 0);
     std::queue<unsigned int> touched;
     touched.push(v);
     pushValue[v] = value;
     while (!touched.empty()) {
         unsigned int currentV = touched.front();
         touched.pop();
-        for (; pushValue[currentV] && firstUnsaturatedEdge[direction][currentV] != graph[currentV].end(); ++firstUnsaturatedEdge[direction][currentV]) {
-            InnerNetEdge &e = *firstUnsaturatedEdge[direction][currentV];
-            if (distance[e.to] == distance[currentV] + 1 - 2 * direction && !blocked[e.to]) {
+        for (; pushValue[currentV] && firstUnsaturatedEdge_[direction][currentV] != net_.graph[currentV].end(); ++firstUnsaturatedEdge_[direction][currentV]) {
+            InnerNetEdge &e = *firstUnsaturatedEdge_[direction][currentV];
+            if (distance_[e.to] == distance_[currentV] + 1 - 2 * direction && !blocked_[e.to]) {
                 unsigned int u = currentV;
                 InnerNetEdge *candidateEdge = &e;
                 if (direction == BACKWARD) {
@@ -474,8 +492,8 @@ void MalhotraKumarMaheshwari::pushVertice(unsigned int v, EDirections direction,
                     candidateEdge = &reverseEdge(e);
                 }
                 InnerNetEdge &pushEdge = *candidateEdge;
-                if (cf(pushEdge) > 0) {
-                    unsigned long long value = std::min(static_cast<unsigned long long>(cf(pushEdge)), pushValue[currentV]);
+                if (residue(pushEdge) > 0) {
+                    unsigned long long value = std::min(static_cast<unsigned long long>(residue(pushEdge)), pushValue[currentV]);
                     push(u, pushEdge, value);
                     pushValue[currentV] -= value;
                     pushValue[e.to] += value;
@@ -491,29 +509,27 @@ void MalhotraKumarMaheshwari::pushVertice(unsigned int v, EDirections direction,
 void MalhotraKumarMaheshwari::push(unsigned int v, InnerNetEdge &e, unsigned long long value) {
     e.flow += value;
     reverseEdge(e).flow -= value;
-    potential[FORWARD][v] -= value;
-    potential[BACKWARD][e.to] -= value;
+    potential_[FORWARD][v] -= value;
+    potential_[BACKWARD][e.to] -= value;
 }
 
 void MalhotraKumarMaheshwari::cleanUp() {
-    source = sink = verticesCount = edgesCount = 0;
-    graph.clear();
-    blocked.clear();
-    distance.clear();
+    net_.cleanUp();
+    blocked_.clear();
+    distance_.clear();
     for (unsigned int i = 0; i < DIRECTIONS; ++i) {
-        potential[i].clear();
-        firstUnsaturatedEdge[i].clear();
+        potential_[i].clear();
+        firstUnsaturatedEdge_[i].clear();
     }
 }
 
-unsigned int MalhotraKumarMaheshwari::cf(const InnerNetEdge &e) {
+unsigned int MalhotraKumarMaheshwari::residue(const InnerNetEdge &e) {
     return e.capacity - e.flow;
 }
 
 InnerNetEdge & MalhotraKumarMaheshwari::reverseEdge(const InnerNetEdge &e) {
-    return graph[e.to][e.reverse];
+    return net_.graph[e.to][e.reverse];
 }
-
 
 #ifndef _MAX_FLOW_FINDER_FABRIC_
 #define _MAX_FLOW_FINDER_FABRIC_
@@ -552,7 +568,7 @@ int main() {
         --from, --to;
         graph[i] = DirectedEdgeWithStart(from, to, capacity);
     }
-    MaxFlowFinder *maxFlowFinder = MaxFlowFinderFabric::getMaxFlowFinder(MaxFlowFinderFabric::MALHOTRA_KUMAR_MAHESHWARI);
+    MaxFlowFinder *maxFlowFinder = MaxFlowFinderFabric::getMaxFlowFinder(MaxFlowFinderFabric::PRE_PUSH_FLOW_SIMPLE_FOR);
     MaxFlowDescription description = maxFlowFinder->findMaxFlow(n, graph, 0, n - 1);
     printf("%llu\n",  description.flowValue);
     for (unsigned int i = 0; i < description.description.size(); ++i) {
