@@ -3,33 +3,31 @@
 
 #include <vector>
 #include <algorithm>
-#include <utility>
 #include <climits>
 #include <cstdio>
 #include "sparseTable.hpp"
+#include "minimalPair.hpp"
 
 using std::vector;
 using std::max;
 using std::min;
-using std::pair;
-using std::make_pair;
 
 struct RMQpm1 {
 private:
     SparseTable st;
     vector <unsigned int> elements;
-    vector <vector <pair<unsigned int, unsigned int> > > prefixMins;
-    vector <vector <pair<unsigned int, unsigned int> > > suffixMins;
+    vector <vector <MinimalPair<unsigned int> > > prefixMins;
+    vector <vector <MinimalPair<unsigned int> > > suffixMins;
     unsigned int n;
     unsigned int block;
-    vector <vector<vector<pair<int, unsigned int> > > > dp;
+    vector <vector<vector<MinimalPair<int> > > > dp;
     vector <unsigned int> type;
-    
+
 public:
     RMQpm1();
     RMQpm1(const vector<unsigned int> &elements);
-    
-    unsigned int minimum(unsigned int i, unsigned int j);
+
+    unsigned int minimum(unsigned int i, unsigned int j) const;
 };
 
 #endif

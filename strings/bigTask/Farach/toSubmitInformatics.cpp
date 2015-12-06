@@ -1,3 +1,627 @@
+#ifndef _MINIMAL_PAIR
+#define _MINIMAL_PAIR
+
+template<typename T>
+struct MinimalPair {
+    T element;
+    unsigned int index;
+
+    MinimalPair() {
+    }
+
+    MinimalPair(T element, unsigned int index) :
+        element(element), index(index) {
+    }
+
+    bool operator<(const MinimalPair &other) const {
+        return (element == other.element ?
+            index < other.index : element < other.element
+        );
+    }
+};
+
+#endif
+
+#ifndef _SPARSE_TABLE
+#define _SPARSE_TABLE
+
+
+#include <vector>
+#include <algorithm>
+#include <climits>
+
+using std::vector;
+using std::min;
+
+struct SparseTable {
+private:
+    vector<vector<MinimalPair<unsigned int> > > st;
+    vector<unsigned int> fastLog;
+    unsigned int n;
+
+    void init();
+
+public:
+    SparseTable(const vector<unsigned int> &elements);
+    SparseTable();
+
+    unsigned int minimum(unsigned int i, unsigned int j) const;
+
+    MinimalPair<unsigned int> operator[](unsigned int i) const;
+};
+
+#endif
+
+#include <vector>
+#include <algorithm>
+#include <climits>
+
+using std::vector;
+using std::min;
+
+
+SparseTable::SparseTable() {
+}
+
+SparseTable::SparseTable(const vector<unsigned int> &elements) {
+    n = elements.size();
+    fastLog.resize(n + 1);
+    fastLog[1] = 0;
+    for (unsigned int i = 2; i <= n; ++i) {
+        fastLog[i] = fastLog[i / 2] + 1;
+    }
+    st.resize(fastLog[n] + 1);
+    st[0].resize(n);
+    for (unsigned int i = 0; i < n; ++i) {
+        st[0][i] = MinimalPair<unsigned int>(elements[i], i);
+    }
+    init();
+}
+
+void SparseTable::init() {
+    for (unsigned int k = 1; k <= fastLog[n]; ++k) {
+        st[k].resize(n - (1 << k) + 1);
+        for (unsigned int i = 0; i < st[k].size(); ++i) {
+            st[k][i] = min(st[k - 1][i], st[k - 1][i + (1 << (k - 1))]);
+        }
+    }
+}
+
+unsigned int SparseTable::minimum(unsigned int i, unsigned int j) const {
+    if (j < i) {
+        return UINT_MAX;
+    }
+    unsigned int length = (j - i + 1);
+    return min(st[fastLog[length]][i],
+        st[fastLog[length]][j - (1 << fastLog[length]) + 1]).index;
+}
+
+MinimalPair<unsigned int> SparseTable::operator[](unsigned int i) const {
+   return st[0][i];
+}
+
+#ifndef _RMQpm1
+#define _RMQpm1
+
+#include <vector>
+#include <algorithm>
+#include <climits>
+#include <cstdio>
+
+using std::vector;
+using std::max;
+using std::min;
+
+struct RMQpm1 {
+private:
+    SparseTable st;
+    vector <unsigned int> elements;
+    vector <vector <MinimalPair<unsigned int> > > prefixMins;
+    vector <vector <MinimalPair<unsigned int> > > suffixMins;
+    unsigned int n;
+    unsigned int block;
+    vector <vector<vector<MinimalPair<int> > > > dp;
+    vector <unsigned int> type;
+
+public:
+    RMQpm1();
+    RMQpm1(const vector<unsigned int> &elements);
+
+    unsigned int minimum(unsigned int i, unsigned int j) const;
+};
+
+#endif
+
+#include <vector>
+#include <algorithm>
+#include <climits>
+#include <cstdio>
+
+using std::vector;
+using std::max;
+using std::min;
+
+RMQpm1::RMQpm1() {
+}
+
+RMQpm1::RMQpm1(const vector<unsigned int> &elements) {
+    this->elements = elements;
+    n = elements.size();
+    for (block = 1; (1 << block) <= n; ++block) {
+    }
+    block = max(block / 2, 1u);
+    vector <vector <unsigned int> > decomposition;
+    vector <unsigned int> stElements;
+    for (unsigned int i = 0; i < n; i += block) {
+        decomposition.push_back(vector<unsigned int>(block, 0));
+        prefixMins.push_back(vector <MinimalPair<unsigned int> >(block));
+        suffixMins.push_back(vector <MinimalPair<unsigned int> >(block));
+
+        unsigned int currentMask = 0;
+
+        for (unsigned int j = 0; j < block; ++j) {
+            if (i + j < n) {
+                decomposition.back()[j] = elements[i + j];
+            }
+            if (j >= 1
+                && decomposition.back()[j] > decomposition.back()[j - 1]) {
+                currentMask |= (1 << j);
+            }
+        }
+        currentMask >>= 1;
+        type.push_back(currentMask);
+
+        prefixMins.back()[0]
+            = MinimalPair<unsigned int>(decomposition.back()[0], i + 0);
+        suffixMins.back()[block - 1]
+            = MinimalPair<unsigned int>(decomposition.back()[block - 1],
+                i + block - 1);
+        for (unsigned int j = 1; j < block; ++j) {
+            prefixMins.back()[j] = min(prefixMins.back()[j - 1],
+                MinimalPair<unsigned int>(decomposition.back()[j], i + j)
+            );
+            suffixMins.back()[block - j - 1] = min(suffixMins.back()[block - j],
+                MinimalPair<unsigned int>(decomposition.back()[block - j - 1],
+                    i + block - j - 1
+                )
+            );
+        }
+        stElements.push_back(prefixMins.back().back().element);
+    }
+    st = SparseTable(stElements);
+
+    dp.resize(1 << (block - 1));
+
+    for (unsigned int i = 0; i < (1 << (block - 1)); ++i) {
+        dp[i].resize(block);
+        for (unsigned int length = 1; length <= block; ++length) {
+            dp[i][length - 1].resize(block - length + 2);
+            if (length == 1) {
+                for (unsigned int j = 0; j < block; ++j) {
+                    dp[i][length - 1][j] = MinimalPair<int>((j == 0 ?
+                        0 : dp[i][length - 1][j - 1].element
+                            + 2 * ((i >> (j - 1)) & 1) - 1
+                        ), j
+                    );
+                }
+            } else {
+                for (unsigned int j = length - 2; j < block; ++j) {
+                    dp[i][length - 1][j - (length - 2)] = min(dp[i][0][j],
+                        dp[i][length - 2][j - (length - 2)]
+                    );
+                }
+            }
+        }
+    }
+}
+
+unsigned int RMQpm1::minimum(unsigned int i, unsigned int j) const {
+    if (j < i) {
+        return UINT_MAX;
+    }
+    if (i == j) {
+        return i;
+    }
+    unsigned int iBlock = i / block;
+    unsigned int jBlock = j / block;
+    if (iBlock != jBlock) {
+        MinimalPair<unsigned int> prefSufMin
+            = min(suffixMins[iBlock][i % block], prefixMins[jBlock][j % block]);
+        if (iBlock + 1 > jBlock - 1) {
+            return prefSufMin.index;
+        } else {
+            unsigned int insideMinPos = st.minimum(iBlock + 1, jBlock - 1);
+            if (st[insideMinPos].element < prefSufMin.element) {
+                return prefixMins[insideMinPos][block - 1].index;
+            } else {
+                return prefSufMin.index;
+            }
+        }
+    } else {
+        return iBlock * block + dp[type[iBlock]][j - i][i % block].index;
+    }
+}
+
+#ifndef _EULER_PAIR
+#define _EULER_PAIR
+
+struct EulerPair {
+    unsigned int depth;
+    unsigned int node;
+
+    EulerPair();
+
+    EulerPair(unsigned int depth, unsigned int node);
+};
+
+#endif
+
+
+EulerPair::EulerPair() {
+}
+
+EulerPair::EulerPair(unsigned int depth, unsigned int node) :
+    depth(depth),
+    node(node) {
+}
+
+#ifndef _LCA
+#define _LCA
+
+#include <vector>
+#include <algorithm>
+#include <utility>
+#include <climits>
+#include <cstdio>
+
+
+using std::vector;
+using std::max;
+using std::min;
+
+class LCA {
+private:
+    vector <unsigned int> myEuler;
+    vector <unsigned int> first;
+    vector <unsigned int> last;
+
+    RMQpm1 rmq;
+
+public:
+
+    LCA();
+
+    LCA(const vector<EulerPair> &euler);
+
+    unsigned int lca(unsigned int u, unsigned int v) const;
+};
+
+#endif
+
+
+#ifndef _LCA_CPP
+#define _LCA_CPP
+
+#include <vector>
+#include <algorithm>
+#include <utility>
+#include <climits>
+#include <cstdio>
+
+
+
+using std::vector;
+using std::max;
+using std::min;
+
+LCA::LCA() {
+}
+
+LCA::LCA(const vector<EulerPair> &euler) {
+    unsigned int n = (euler.size() + 1) / 2;
+    vector <unsigned int> toRMQ(euler.size());
+    myEuler.resize(euler.size());
+    first.assign(n, -1);
+    last.assign(n, -1);
+    for (unsigned int i = 0; i < euler.size(); ++i) {
+        if (first[euler[i].node] == -1) {
+            first[euler[i].node] = i;
+        }
+        last[euler[i].node] = i;
+        toRMQ[i] = euler[i].depth;
+        myEuler[i] = euler[i].node;
+    }
+
+    rmq = RMQpm1(toRMQ);
+}
+
+
+unsigned int LCA::lca(unsigned int u, unsigned int v) const {
+    return myEuler[rmq.minimum(min(first[u], first[v]), max(last[u], last[v]))];
+}
+
+#endif
+
+#ifndef _SUFFIX_TREE
+#define _SUFFIX_TREE
+
+#include <vector>
+#include <cassert>
+
+using std::vector;
+
+class SuffixTree {
+public:
+    class Node {
+        vector <unsigned int> children_;
+    public:
+        int parent;
+        unsigned int indexOfParentEdge;
+        unsigned int depth;
+        int leaf;
+
+        Node(int parent=-1,
+            unsigned int indexOfParentEdge=0, unsigned int depth=0, int leaf=-1
+        );
+        unsigned int lengthOfEdge(const SuffixTree &tree,
+            unsigned int parentDepth=-1
+        ) const;
+
+        unsigned int lastIndex(const SuffixTree &tree,
+            unsigned int parentDepth=-1
+        ) const;
+
+        unsigned int getFirstHiddenInfo() const;
+
+        unsigned int getSecondHiddenInfo() const;
+
+        unsigned int getHiddenInfo(unsigned int i) const;
+
+        void setHiddenInfo(unsigned int first, unsigned int second);
+
+        unsigned int &operator[](size_t i);
+
+        const unsigned int &operator[](size_t i) const;
+
+        void push_back(unsigned int child);
+
+        size_t size() const;
+
+        void clear();
+
+        vector<unsigned int>::iterator begin();
+
+        vector<unsigned int>::iterator end();
+
+        vector<unsigned int>::const_iterator begin() const;
+
+        vector<unsigned int>::const_iterator end() const;
+
+        void renewChildren(const vector <unsigned int> &newChildren);
+
+        void deleteFirstChild();
+
+        void resize(size_t size);
+    };
+
+private:
+    vector <Node> nodes_;
+    vector <unsigned int> pull_;
+
+public:
+    const unsigned int root = 0;
+
+    Node &operator[](size_t i);
+
+    const Node &operator[](size_t i) const;
+
+    SuffixTree();
+
+    void checkNode(const Node &node) const;
+
+    void deleteUselessNode(unsigned int v, unsigned int inParentIndex,
+        int leaf
+    );
+
+    unsigned int newNode(
+        int parent=-1,
+        unsigned int indexOfParentEdge=0,
+        unsigned int depth=0,
+        int leaf=-1
+    );
+
+    unsigned int splitEdge(unsigned int parent, unsigned int childIndex,
+        unsigned int length
+    );
+};
+
+#endif
+
+#include <vector>
+#include <cassert>
+
+
+using std::vector;
+
+SuffixTree::Node::Node(int parent,
+    unsigned int indexOfParentEdge, unsigned int depth, int leaf
+) :
+    parent(parent),
+    indexOfParentEdge(indexOfParentEdge),
+    depth(depth),
+    leaf(leaf) {
+}
+
+unsigned int SuffixTree::Node::lengthOfEdge(const SuffixTree &tree,
+    unsigned int parentDepth
+) const {
+    if (parentDepth != -1) {
+        return depth - parentDepth;
+    }
+    if (parent != -1) {
+        return depth - tree[parent].depth;
+    }
+    return depth;
+}
+
+unsigned int SuffixTree::Node::lastIndex(const SuffixTree &tree,
+    unsigned int parentDepth
+) const {
+    return indexOfParentEdge + lengthOfEdge(tree, parentDepth);
+}
+
+unsigned int SuffixTree::Node::getFirstHiddenInfo() const {
+    return indexOfParentEdge;
+}
+
+unsigned int SuffixTree::Node::getSecondHiddenInfo() const {
+    return -(leaf + 2);
+}
+
+unsigned int SuffixTree::Node::getHiddenInfo(unsigned int i) const {
+    #ifdef _GLIBCXX_DEBUG
+        assert(0 <= i && i <= 1);
+    #endif
+    return (i == 0 ? getFirstHiddenInfo() : getSecondHiddenInfo());
+}
+
+void SuffixTree::Node::setHiddenInfo(unsigned int first, unsigned int second) {
+    indexOfParentEdge = first;
+    leaf = -2 - second;
+}
+
+unsigned int &SuffixTree::Node::operator[](size_t i) {
+    return children_[i];
+}
+
+const unsigned int &SuffixTree::Node::operator[](size_t i) const {
+    return children_[i];
+}
+
+void SuffixTree::Node::push_back(unsigned int child) {
+    children_.push_back(child);
+}
+
+size_t SuffixTree::Node::size() const {
+    return children_.size();
+}
+
+void SuffixTree::Node::clear() {
+    children_.clear();
+}
+
+vector<unsigned int>::iterator SuffixTree::Node::begin() {
+    return children_.begin();
+}
+
+vector<unsigned int>::iterator SuffixTree::Node::end() {
+    return children_.end();
+}
+
+vector<unsigned int>::const_iterator SuffixTree::Node::begin() const {
+    return children_.cbegin();
+}
+
+vector<unsigned int>::const_iterator SuffixTree::Node::end() const {
+    return children_.cend();
+}
+
+void SuffixTree::Node::renewChildren(const vector <unsigned int> &newChildren) {
+    children_ = newChildren;
+}
+
+void SuffixTree::Node::deleteFirstChild() {
+    children_ = vector <unsigned int> (begin() + 1, end());
+}
+
+void SuffixTree::Node::resize(size_t size) {
+    children_.resize(size);
+}
+
+SuffixTree::Node &SuffixTree::operator[](size_t i) {
+    return nodes_[i];
+}
+
+const SuffixTree::Node &SuffixTree::operator[](size_t i) const {
+    return nodes_[i];
+}
+
+SuffixTree::SuffixTree() {
+    nodes_.resize(1);
+}
+
+void SuffixTree::checkNode(const Node &node) const {
+    #ifdef _DEBUG
+        assert(node.parent == -1 || nodes_[node.parent].depth < node.depth);
+    #endif
+}
+
+void SuffixTree::deleteUselessNode(unsigned int v, unsigned int inParentIndex,
+    int leaf
+ ) {
+    unsigned int parent = nodes_[v].parent;
+    nodes_[parent][inParentIndex] = -1;
+
+    #ifdef _DEBUG
+        assert(nodes_[v].size() <= 1);
+    #endif
+
+    for (auto const &u: nodes_[v]) {
+        nodes_[parent][inParentIndex] = u;
+        nodes_[u].parent = parent;
+        nodes_[u].indexOfParentEdge = leaf + nodes_[parent].depth;
+        checkNode(nodes_[u]);
+    }
+    nodes_[v].clear();
+    pull_.push_back(v);
+}
+
+unsigned int SuffixTree::newNode(
+    int parent,
+    unsigned int indexOfParentEdge,
+    unsigned int depth,
+    int leaf
+) {
+    Node resultNode = Node(parent, indexOfParentEdge, depth, leaf);
+    if (pull_.size()) {
+        unsigned int returnValue = pull_.back();
+        pull_.pop_back();
+        nodes_[returnValue] = resultNode;
+        return returnValue;
+    }
+    nodes_.push_back(resultNode);
+    return nodes_.size() - 1;
+}
+
+unsigned int SuffixTree::splitEdge(unsigned int parent, unsigned int childIndex,
+    unsigned int length
+) {
+    unsigned int child = nodes_[parent][childIndex];
+    unsigned int newNodeIndex = newNode(parent,
+        nodes_[child].indexOfParentEdge, nodes_[parent].depth + length);
+    Node &newNode = nodes_[newNodeIndex];
+    nodes_[child].indexOfParentEdge = newNode.lastIndex(*this);
+    nodes_[child].parent = newNodeIndex;
+    newNode.push_back(child);
+    nodes_[parent][childIndex] = newNodeIndex;
+
+    checkNode(nodes_[newNodeIndex]);
+
+    return newNodeIndex;
+}
+
+class RandomLCPGetter;
+struct NumberedPair;
+
+template<class T>
+class IndexedPair;
+
+struct MergeNodesStruct;
+struct MergeTreesStruct;
+
+#ifndef _FARACH
+#define _FARACH
+
 #include <cstdio>
 #include <iostream>
 #include <vector>
@@ -7,11 +631,330 @@
 #include <cassert>
 #include <functional>
 #include <string>
-#include "eulerPair.hpp"
-#include "LCA.hpp"
-#include "suffixTree.hpp"
-#include "usefulStructures.hpp"
-#include "farach.hpp"
+
+using std::vector;
+using std::make_pair;
+using std::max;
+using std::min;
+using std::pair;
+using std::function;
+using std::swap;
+
+void buildEulerDfs(unsigned int v, unsigned int &count, unsigned int depth,
+    const SuffixTree &tree, vector <EulerPair> &euler,
+    vector <unsigned int> &realNode
+);
+
+void buildEuler(const SuffixTree &tree, vector <EulerPair> &euler,
+    vector <unsigned int> &realNode
+);
+
+
+
+RandomLCPGetter usualGetter(const SuffixTree &tree, unsigned int inputLength);
+
+
+SuffixTree buildTempSuffixTree(const vector <int> &);
+
+template<class T, class Compare>
+vector <T> radixSort(const vector <T> &input, Compare comp) {
+    int maxElement = 0;
+    for (auto const &element: input) {
+        maxElement = max(maxElement, static_cast<int>(comp(element) + 1));
+    }
+    vector <unsigned int> count(maxElement + 1);
+    for (auto const &element: input) {
+        ++count[comp(element) + 1];
+    }
+    for (unsigned int i = 1; i <= maxElement; ++i) {
+        count[i] += count[i - 1];
+    }
+    vector <T> result(input.size());
+    for (unsigned int i = input.size() - 1; i != UINT_MAX; --i) {
+        const T &element = input[i];
+        result[--count[comp(element) + 1]] = element;
+    }
+    return result;
+}
+
+int firstElementOfNumberedPair(const NumberedPair &x);
+
+int secondElementOfNumberedPair(const NumberedPair &x);
+
+vector <int> compressInput(const vector <int> &input);
+
+int decompressDfs(unsigned int v, unsigned int inParentIndex, SuffixTree &tree,
+    const vector <int> &input, unsigned int depth
+);
+
+void decompress(SuffixTree &tree, const vector <int> &input);
+
+void checkDfs(const SuffixTree &tree, unsigned int v, const vector<int> &input);
+
+void printHiddenDfs(const SuffixTree &tree, unsigned int v);
+
+void suffixArrayDfs(unsigned int v, const SuffixTree &tree,
+    vector <unsigned int> &suffix);
+
+void buildSuffixArray(const SuffixTree &tree, vector <unsigned int> &suffix);
+
+vector <unsigned int> buildOddSuffixArray(
+    const vector <unsigned int> &evenSuffix,
+    const vector <int> &input);
+
+vector <unsigned int> buildOddLcp(const RandomLCPGetter &getter,
+    const vector <unsigned int> &oddSuffix,
+    const vector <int> &input
+);
+
+SuffixTree buildSuffixTreeFromSA(vector <unsigned int> &sa,
+    vector <unsigned int> &lcp,
+    unsigned int length);
+
+SuffixTree buildOddSuffixTree(const SuffixTree &even,
+    const vector<int> &input);
+
+void copyNodeExceptParentAndChildren(const SuffixTree::Node &from,
+    SuffixTree::Node &to);
+
+void copySubTree(const SuffixTree &from, SuffixTree &to,
+    unsigned int fromStart, unsigned int toStart);
+
+unsigned int appendCopyNode(const SuffixTree &from, SuffixTree &to,
+    unsigned int toStart, unsigned int u);
+
+
+template<class Struct, class ActionType>
+void doSomething(IndexedPair<Struct> &merging, ActionType action) {
+    action(merging[0]);
+    action(merging[1]);
+}
+
+template<class Struct, class Compare>
+Struct &minimal(IndexedPair<Struct> &merging, Compare comp) {
+    if (comp(merging[0]) < comp(merging[1])) {
+        return merging[0];
+    }
+    return merging[1];
+}
+
+void mergeNodes(unsigned int first, unsigned int second, unsigned int to,
+    SuffixTree &result, SuffixTree &tree1, SuffixTree &tree2,
+    const vector <int> &input);
+
+bool findSuffixesDfs(unsigned int v, const SuffixTree &tree,
+    vector <unsigned int> &output);
+
+vector <unsigned int> findSuffixes(const SuffixTree &tree);
+
+void findLcaSuffix(unsigned int v, const SuffixTree &merged,
+    IndexedPair<const SuffixTree &> trees,
+    vector <IndexedPair<unsigned int> > &output);
+
+void trueLengthFillDfs(unsigned int v, const SuffixTree &merged,
+    const RandomLCPGetter &getter, IndexedPair<unsigned int> suffix, unsigned int length,
+    vector <unsigned int> &output);
+
+vector <unsigned int> computeTrueLength(const SuffixTree &merged,
+    IndexedPair<const SuffixTree &> trees, unsigned int inputLength);
+
+template<class T>
+T *xorPointers(T *a, T *b, T *c) {
+    if (a == b) {
+        return c;
+    }
+    return b;
+}
+
+void correctMerge(unsigned int v, unsigned int parentsPlace, SuffixTree &merged,
+    IndexedPair<MergeTreesStruct> &updatedTrees,
+    const vector <unsigned int> &trueLength, const vector <int> &input,
+    unsigned int copyTree=2);
+
+void checkTree(const char *message, const SuffixTree &tree,
+    const vector <int> &input);
+
+SuffixTree mergeTrees(SuffixTree &tree1, SuffixTree &tree2,
+    const vector <int> &input);
+
+int cleanTreeDfs(unsigned int v, unsigned int parent, SuffixTree &tree);
+
+SuffixTree buildTempSuffixTree(const vector <int> &input);
+
+SuffixTree buildSuffixTree(const vector <int> &input);
+
+unsigned long long countSubstrings(SuffixTree &tree, unsigned int v);
+
+void randGen(int length, int alph, int tests);
+
+int main();
+
+
+#endif
+
+#include <vector>
+
+using std::vector;
+
+
+
+enum ELeafGetterMode {
+    NUMBER,
+    LEAF,
+};
+
+class RandomLCPGetter {
+private:
+    const SuffixTree &tree;
+    vector <EulerPair> euler;
+    vector <unsigned int> realNode;
+    vector <unsigned int> irrealNode;
+    LCA lcaGetter;
+public:
+    template<class LeafGetter>
+    RandomLCPGetter(const SuffixTree &tree, unsigned int inputLength,
+        LeafGetter leafGetter
+    ) :
+        tree(tree)
+    {
+        buildEuler(tree, euler, realNode);
+        irrealNode.resize(inputLength + 1);
+        for (unsigned int i = 0; i < realNode.size(); ++i) {
+            for (int j = 0; j < leafGetter(NUMBER); ++j) {
+                int leaf = leafGetter(LEAF, realNode[i], j);
+                    // tree[realNode[i]].leaf;
+                if (leaf != -1) {
+                    irrealNode[leaf] = i;
+                }
+            }
+        }
+        lcaGetter = LCA(euler);
+    }
+
+    unsigned int lca(unsigned int i, unsigned int j) const;
+
+    unsigned int lcp(unsigned int i, unsigned int j) const;
+};
+
+struct NumberedPair {
+    pair<int, int> elements;
+    unsigned int number;
+    NumberedPair(int first, int second, unsigned int number);
+
+    NumberedPair();
+};
+
+template<class T>
+class IndexedPair {
+    T first;
+    T second;
+public:
+    IndexedPair(T first, T second) : first(first), second(second) {
+    }
+
+    T &operator[](size_t i) {
+        #ifdef _GLIBCXX_DEBUG
+            assert(0 <= i && i <= 1);
+        #endif
+        return (i == 0 ? first : second);
+    }
+
+    const T &operator[](size_t i) const {
+        #ifdef _GLIBCXX_DEBUG
+            assert(0 <= i && i <= 1);
+        #endif
+        return (i == 0 ? first : second);
+    }
+};
+
+struct MergeNodesStruct {
+    SuffixTree &tree;
+    const vector <int> &input;
+    unsigned int v;
+    unsigned int childIndex;
+    unsigned int child;
+    unsigned int length;
+    int symbol;
+
+    MergeNodesStruct(SuffixTree &tree,
+        unsigned int v, const vector <int> &input);
+
+    bool end() const;
+
+    void evaluate();
+
+    void split(unsigned int splitLength);
+};
+
+struct MergeTreesStruct {
+    const SuffixTree &tree;
+    vector <unsigned int> suffix;
+    unsigned int number;
+    unsigned int info;
+
+    MergeTreesStruct(const SuffixTree &tree, unsigned int number);
+
+    void evaluate(const SuffixTree &merged, unsigned int v);
+};
+
+unsigned int RandomLCPGetter::lca(unsigned int i, unsigned int j) const {
+    return realNode[lcaGetter.lca(irrealNode[i], irrealNode[j])];
+}
+
+unsigned int RandomLCPGetter::lcp(unsigned int i, unsigned int j) const {
+    return tree[lca(i, j)].depth;
+}
+
+
+NumberedPair::NumberedPair(int first, int second, unsigned int number) :
+    elements(first, second),
+    number(number) {
+}
+
+NumberedPair::NumberedPair() {
+}
+
+MergeNodesStruct::MergeNodesStruct(SuffixTree &tree,
+    unsigned int v, const vector <int> &input
+) : tree(tree), v(v), input(input) {
+    childIndex = 0;
+}
+
+bool MergeNodesStruct::end() const {
+    return childIndex == tree[v].size();
+}
+
+void MergeNodesStruct::evaluate() {
+    child = tree[v][childIndex];
+    symbol = input[tree[child].indexOfParentEdge];
+}
+
+void MergeNodesStruct::split(unsigned int splitLength) {
+    child = tree.splitEdge(v, childIndex, splitLength);
+}
+
+
+MergeTreesStruct::MergeTreesStruct(const SuffixTree &tree, unsigned int number)
+    : tree(tree), number(number)
+{
+    suffix = findSuffixes(tree);
+}
+
+void MergeTreesStruct::evaluate(const SuffixTree &merged, unsigned int v) {
+    info = merged[v].getHiddenInfo(number);
+}
+
+
+#include <cstdio>
+#include <iostream>
+#include <vector>
+#include <utility>
+#include <algorithm>
+#include <climits>
+#include <cassert>
+#include <functional>
+#include <string>
+
 
 
 using std::vector;

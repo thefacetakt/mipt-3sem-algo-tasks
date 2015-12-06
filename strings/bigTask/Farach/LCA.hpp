@@ -8,29 +8,27 @@
 #include <cstdio>
 #include "sparseTable.hpp"
 #include "RMQpm1.hpp"
+#include "eulerPair.hpp"
 
 using std::vector;
 using std::max;
 using std::min;
-using std::pair;
-using std::make_pair;
 
-struct LCA {
+class LCA {
 private:
     vector <unsigned int> myEuler;
     vector <unsigned int> first;
     vector <unsigned int> last;
-    
+
     RMQpm1 rmq;
-    
+
 public:
-    
+
     LCA();
-    
-    LCA(const vector<pair<unsigned int, unsigned int> > &euler);
-    
-    
-    unsigned int lca(unsigned int u, unsigned int v);
+
+    LCA(const vector<EulerPair> &euler);
+
+    unsigned int lca(unsigned int u, unsigned int v) const;
 };
 
 #endif
