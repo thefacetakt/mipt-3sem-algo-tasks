@@ -8,7 +8,7 @@
 #include <cstdio>
 #include "sparseTable.hpp"
 #include "RMQpm1.hpp"
-#include "EulerPair.hpp"
+#include "eulerPair.hpp"
 
 using std::vector;
 using std::max;

@@ -1,5 +1,5 @@
 #include "usefulStructures.hpp"
-#include "SuffixTree.hpp"
+#include "suffixTree.hpp"
 #include "farach.hpp"
 
 

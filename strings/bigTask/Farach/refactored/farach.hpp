@@ -1,10 +1,6 @@
 #ifndef _FARACH
 #define _FARACH
 
-#define _GLIBCXX_DEBUG
-#define _PRINT_DBG
-#define _DEBUG
-
 #include <cstdio>
 #include <iostream>
 #include <vector>
@@ -14,9 +10,9 @@
 #include <cassert>
 #include <functional>
 #include <string>
-#include "EulerPair.hpp"
+#include "eulerPair.hpp"
 #include "LCA.hpp"
-#include "SuffixTree.hpp"
+#include "suffixTree.hpp"
 #include "usefulStructures.hpp"
 
 using std::vector;

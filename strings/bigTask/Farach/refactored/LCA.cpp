@@ -8,7 +8,7 @@
 #include <cstdio>
 #include "sparseTable.hpp"
 #include "RMQpm1.hpp"
-#include "EulerPair.hpp"
+#include "eulerPair.hpp"
 #include "LCA.hpp"
 
 

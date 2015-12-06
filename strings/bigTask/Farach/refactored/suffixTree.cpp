@@ -1,6 +1,6 @@
 #include <vector>
 #include <cassert>
-#include "SuffixTree.hpp"
+#include "suffixTree.hpp"
 
 using std::vector;
 

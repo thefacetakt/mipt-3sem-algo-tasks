@@ -1,4 +1,4 @@
-#include "EulerPair.hpp"
+#include "eulerPair.hpp"
 
 EulerPair::EulerPair() {
 }

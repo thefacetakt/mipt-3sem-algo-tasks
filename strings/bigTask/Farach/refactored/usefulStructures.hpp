@@ -10,7 +10,7 @@ class IndexedPair;
 struct MergeNodesStruct;
 struct MergeTreesStruct;
 
-#include "SuffixTree.hpp"
+#include "suffixTree.hpp"
 #include "farach.hpp"
 #include <vector>
 
