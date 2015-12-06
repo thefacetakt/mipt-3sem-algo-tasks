@@ -12,7 +12,7 @@ using std::min;
 
 struct SparseTable {
 private:
-    vector<vector<MinimalPair> > st;
+    vector<vector<MinimalPair<unsigned int> > > st;
     vector<unsigned int> fastLog;
     unsigned int n;
 
@@ -24,7 +24,7 @@ public:
 
     unsigned int minimum(unsigned int i, unsigned int j) const;
 
-    MinimalPair operator[](unsigned int i) const;
+    MinimalPair<unsigned int> operator[](unsigned int i) const;
 };
 
 #endif

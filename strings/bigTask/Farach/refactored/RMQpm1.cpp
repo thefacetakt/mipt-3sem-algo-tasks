@@ -23,8 +23,8 @@ RMQpm1::RMQpm1(const vector<unsigned int> &elements) {
     vector <unsigned int> stElements;
     for (unsigned int i = 0; i < n; i += block) {
         decomposition.push_back(vector<unsigned int>(block, 0));
-        prefixMins.push_back(vector <MinimalPair>(block));
-        suffixMins.push_back(vector <MinimalPair>(block));
+        prefixMins.push_back(vector <MinimalPair<unsigned int> >(block));
+        suffixMins.push_back(vector <MinimalPair<unsigned int> >(block));
 
         unsigned int currentMask = 0;
 
@@ -40,15 +40,17 @@ RMQpm1::RMQpm1(const vector<unsigned int> &elements) {
         currentMask >>= 1;
         type.push_back(currentMask);
 
-        prefixMins.back()[0] = MinimalPair(decomposition.back()[0], i + 0);
+        prefixMins.back()[0]
+            = MinimalPair<unsigned int>(decomposition.back()[0], i + 0);
         suffixMins.back()[block - 1]
-            = MinimalPair(decomposition.back()[block - 1], i + block - 1);
+            = MinimalPair<unsigned int>(decomposition.back()[block - 1],
+                i + block - 1);
         for (unsigned int j = 1; j < block; ++j) {
             prefixMins.back()[j] = min(prefixMins.back()[j - 1],
-                MinimalPair(decomposition.back()[j], i + j)
+                MinimalPair<unsigned int>(decomposition.back()[j], i + j)
             );
             suffixMins.back()[block - j - 1] = min(suffixMins.back()[block - j],
-                MinimalPair(decomposition.back()[block - j - 1],
+                MinimalPair<unsigned int>(decomposition.back()[block - j - 1],
                     i + block - j - 1
                 )
             );
@@ -65,7 +67,7 @@ RMQpm1::RMQpm1(const vector<unsigned int> &elements) {
             dp[i][length - 1].resize(block - length + 2);
             if (length == 1) {
                 for (unsigned int j = 0; j < block; ++j) {
-                    dp[i][length - 1][j] = MinimalPair((j == 0 ?
+                    dp[i][length - 1][j] = MinimalPair<int>((j == 0 ?
                         0 : dp[i][length - 1][j - 1].element
                             + 2 * ((i >> (j - 1)) & 1) - 1
                         ), j
@@ -92,7 +94,7 @@ unsigned int RMQpm1::minimum(unsigned int i, unsigned int j) const {
     unsigned int iBlock = i / block;
     unsigned int jBlock = j / block;
     if (iBlock != jBlock) {
-        MinimalPair prefSufMin
+        MinimalPair<unsigned int> prefSufMin
             = min(suffixMins[iBlock][i % block], prefixMins[jBlock][j % block]);
         if (iBlock + 1 > jBlock - 1) {
             return prefSufMin.index;

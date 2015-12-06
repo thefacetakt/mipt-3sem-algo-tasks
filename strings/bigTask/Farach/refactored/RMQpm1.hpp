@@ -16,11 +16,11 @@ struct RMQpm1 {
 private:
     SparseTable st;
     vector <unsigned int> elements;
-    vector <vector <MinimalPair> > prefixMins;
-    vector <vector <MinimalPair> > suffixMins;
+    vector <vector <MinimalPair<unsigned int> > > prefixMins;
+    vector <vector <MinimalPair<unsigned int> > > suffixMins;
     unsigned int n;
     unsigned int block;
-    vector <vector<vector<MinimalPair> > > dp;
+    vector <vector<vector<MinimalPair<int> > > > dp;
     vector <unsigned int> type;
 
 public:

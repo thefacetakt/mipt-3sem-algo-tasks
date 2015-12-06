@@ -22,7 +22,7 @@ SparseTable::SparseTable(const vector<unsigned int> &elements) {
     st.resize(fastLog[n] + 1);
     st[0].resize(n);
     for (unsigned int i = 0; i < n; ++i) {
-        st[0][i] = MinimalPair(elements[i], i);
+        st[0][i] = MinimalPair<unsigned int>(elements[i], i);
     }
     init();
 }
@@ -45,6 +45,6 @@ unsigned int SparseTable::minimum(unsigned int i, unsigned int j) const {
         st[fastLog[length]][j - (1 << fastLog[length]) + 1]).index;
 }
 
-MinimalPair SparseTable::operator[](unsigned int i) const {
+MinimalPair<unsigned int> SparseTable::operator[](unsigned int i) const {
    return st[0][i];
 }
