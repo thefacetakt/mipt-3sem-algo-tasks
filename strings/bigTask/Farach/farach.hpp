@@ -170,7 +170,4 @@ unsigned long long countSubstrings(SuffixTree &tree, unsigned int v);
 
 void randGen(int length, int alph, int tests);
 
-int main();
-
-
 #endif

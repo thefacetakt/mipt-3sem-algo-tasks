@@ -4,63 +4,16 @@
 #include <algorithm>
 #include <climits>
 #include <utility>
+#include "inducedSorting.hpp"
+#include "usefulStructures.hpp"
 
 using std::vector;
 using std::pair;
 using std::max;
 
-vector <unsigned int> inducedSorting(vector<unsigned int> input);
-
-enum Type {
-    MINUS,
-    PLUS,
-    STAR,
-    TOTAL
-};
-
-struct Node {
-    vector <unsigned int> children;
-    vector <unsigned int> term;
-};
-
-struct StringSortingItem {
-    unsigned int position;
-    unsigned int string;
-    
-    StringSortingItem() {
-    }
-    
-    StringSortingItem(unsigned int position,
-                      unsigned int string
-                     ) : 
-                      position(position),
-                      string(string) {
-    }
-};
-
-template<class T, class Compare>
-vector <T> radixSort(const vector <T> &input, Compare comp) {
-    unsigned int maxElement = 0;
-    for (auto const &element: input) {
-        maxElement = max(maxElement, static_cast<unsigned int>(comp(element)));
-    }
-    vector <unsigned int> count(maxElement + 1);
-    for (auto const &element: input) {
-        ++count[comp(element)];
-    }
-    for (unsigned int i = 1; i <= maxElement; ++i) {
-        count[i] += count[i - 1];
-    }
-    vector <T> result(input.size());
-    for (unsigned int i = input.size() - 1; i != UINT_MAX; --i) {
-        const T &element = input[i];
-        result[--count[comp(element)]] = element;
-    }
-    return result;
-}
-
 vector <unsigned int> finalDfs(const vector <vector <unsigned int> > &strings,
-    const vector<Node> &trie) {
+    const vector<Node> &trie
+) {
     vector <unsigned int> ans(strings.size());
     vector <unsigned int> tempAns;
     vector <unsigned int> stack;
@@ -79,17 +32,20 @@ vector <unsigned int> finalDfs(const vector <vector <unsigned int> > &strings,
         for (unsigned int i = trie[v].children.size() - 1; i != UINT_MAX; --i) {
             stack.push_back(trie[v].children[i]);
         }
-    
+
     }
     return ans;
 }
 
 void addNode(const StringSortingItem &item, vector <Node> &trie,
-             vector<unsigned int> &position, const vector <vector <unsigned int> > &strings) {
+    vector<unsigned int> &position,
+    const vector <vector <unsigned int> > &strings
+) {
     Node &node = trie[position[item.string]];
-    if (!node.children.size() 
-        || strings[trie[node.children.back()].term[0]][item.position] 
-        != strings[item.string][item.position]) {
+    if (!node.children.size()
+            || strings[trie[node.children.back()].term[0]][item.position]
+            != strings[item.string][item.position]
+        ) {
         unsigned int newNodeIndex = trie.size();
         trie.push_back(Node());
         trie[position[item.string]].children.push_back(newNodeIndex);
@@ -101,31 +57,35 @@ void addNode(const StringSortingItem &item, vector <Node> &trie,
     }
 }
 
-vector <unsigned int> sortOfString(const vector <vector <unsigned int> > &strings) {
+vector <unsigned int> sortOfString(
+    const vector <vector <unsigned int> > &strings
+) {
     vector <StringSortingItem> temp;
     for (unsigned int i = 0; i < strings.size(); ++i) {
         for (unsigned int j = 0; j < strings[i].size(); ++j) {
             temp.push_back(StringSortingItem(j, i));
         }
     }
-    
-    temp = radixSort(radixSort(temp, [&strings] (const StringSortingItem &item) -> unsigned int {
-        return strings[item.string][item.position];
-    }), [] (const StringSortingItem &item) -> unsigned int {
-        return item.position;
-    });
-    
+
+    temp = radixSort(radixSort(temp,
+        [&strings] (const StringSortingItem &item) -> unsigned int {
+            return strings[item.string][item.position];
+        }), [] (const StringSortingItem &item) -> unsigned int {
+            return item.position;
+        }
+    );
+
     vector <Node> trie(1);
     vector <unsigned int> position(strings.size());
     for (unsigned int i = 0; i < strings.size(); ++i) {
         position[i] = 0;
         trie[0].term.push_back(i);
     }
-    
+
     for (auto const &item: temp) {
         addNode(item, trie, position, strings);
     }
-    
+
     for (auto &node: trie) {
         node.term.clear();
     }
@@ -160,9 +120,10 @@ vector <Type> detectTypes(const vector <unsigned int> &input) {
 }
 
 void sortStars(const vector <unsigned int> &input,
-                                unsigned int maxSymbol,
-                                const vector <Type> &type,
-                                vector <vector <unsigned int> > &out) {
+    unsigned int maxSymbol,
+    const vector <Type> &type,
+    vector <vector <unsigned int> > &out
+) {
     vector <vector <unsigned int> > starStrings;
     vector <unsigned int> currentString;
     for (unsigned int i = 0; i < input.size(); ++i) {
@@ -182,7 +143,7 @@ void sortStars(const vector <unsigned int> &input,
     }
     vector <unsigned int> newSymbols = sortOfString(starStrings);
     vector <unsigned int> newString;
-    
+
     vector <unsigned int> starPositions;
     for (unsigned int i = 0; i < input.size(); ++i) {
         if (type[i] == STAR) {
@@ -190,14 +151,19 @@ void sortStars(const vector <unsigned int> &input,
             starPositions.push_back(i);
         }
     }
-    
-    vector <unsigned int> sortedStars = inducedSorting(newString);
+
+    vector <unsigned int> sortedStars = inducedSortingChangable(newString);
     for (unsigned int i = 0; i < sortedStars.size(); ++i) {
-        out[input[starPositions[sortedStars[i]]]].push_back(starPositions[sortedStars[i]]);
+        out[input[starPositions[sortedStars[i]]]].push_back(
+            starPositions[sortedStars[i]]
+        );
     }
 }
 
-void induceMinuses(const vector <unsigned int> &input, const vector <Type> &type, vector <vector <vector <unsigned int> > > &sortedParts) {
+void induceMinuses(const vector <unsigned int> &input,
+    const vector <Type> &type,
+    vector <vector <vector <unsigned int> > > &sortedParts
+) {
     sortedParts[MINUS][0].push_back(input.size() - 1);
     vector <unsigned int> ptr(sortedParts[MINUS].size(), 0);
     for (unsigned int i = 0; i < ptr.size(); ++i) {
@@ -214,7 +180,9 @@ void induceMinuses(const vector <unsigned int> &input, const vector <Type> &type
     }
 }
 
-void inducePluses(const vector <unsigned int> &input, const vector<Type> &type, vector <vector <vector <unsigned int> > > &sortedParts) {
+void inducePluses(const vector <unsigned int> &input, const vector<Type> &type,
+    vector <vector <vector <unsigned int> > > &sortedParts
+) {
     vector <unsigned int> ptr(sortedParts[PLUS].size(), 0);
     for (unsigned int i = ptr.size() - 1; i != UINT_MAX; --i) {
         while (ptr[i] != sortedParts[PLUS][i].size()) {
@@ -224,7 +192,9 @@ void inducePluses(const vector <unsigned int> &input, const vector<Type> &type, 
             }
             ++ptr[i];
         }
-        for (unsigned int j = sortedParts[MINUS][i].size() - 1; j != UINT_MAX; --j) {
+        for (unsigned int j = sortedParts[MINUS][i].size() - 1;
+            j != UINT_MAX; --j
+        ) {
             int index = sortedParts[MINUS][i][j];
             if (index > 0 && type[index - 1] != MINUS) {
                 sortedParts[PLUS][input[index - 1]].push_back(index - 1);
@@ -233,7 +203,34 @@ void inducePluses(const vector <unsigned int> &input, const vector<Type> &type, 
     }
 }
 
-vector <unsigned int> inducedSorting (vector <unsigned int> input) {
+unsigned int defineMaxSymbolAndAddZeroSymbol(vector <unsigned int> &input) {
+    unsigned int maxSymbol = 0;
+    for (int i = 0; i < input.size(); ++i) {
+        input[i] += 1;
+        maxSymbol = max(maxSymbol, input[i] + 1);
+    }
+    input.push_back(0);
+    return maxSymbol;
+}
+
+vector <unsigned int> restoreAnswer(unsigned int maxSymbol,
+    vector <vector <vector <unsigned int> > > &sortedParts
+) {
+    vector <unsigned int> answer;
+    for (unsigned int i = 1; i < maxSymbol; ++i) {
+        for (auto const &j: sortedParts[MINUS][i]) {
+            answer.push_back(j);
+        }
+        for (unsigned int j = sortedParts[PLUS][i].size() - 1;
+            j != UINT_MAX; --j
+        ) {
+            answer.push_back(sortedParts[PLUS][i][j]);
+        }
+    }
+    return answer;
+}
+
+vector <unsigned int> inducedSortingChangable(vector <unsigned int> &input) {
     if (input.size() == 0) {
         return vector <unsigned int> ();
     }
@@ -241,26 +238,23 @@ vector <unsigned int> inducedSorting (vector <unsigned int> input) {
         vector <unsigned int> ans(1, 0);
         return ans;
     }
-    unsigned int maxSymbol = 0;
-    for (int i = 0; i < input.size(); ++i) {
-        input[i] += 1;
-        maxSymbol = max(maxSymbol, input[i] + 1);
-    }
-    input.push_back(0);
-    
+
+    unsigned int maxSymbol = defineMaxSymbolAndAddZeroSymbol(input);
+
     vector <Type> type = detectTypes(input);
-    vector <vector <vector <unsigned int> > > sortedParts(static_cast<unsigned int>(TOTAL), vector<vector<unsigned int> > (maxSymbol));
+    vector <vector <vector <unsigned int> > > sortedParts(
+        static_cast<unsigned int>(TOTAL),
+        vector<vector<unsigned int> > (maxSymbol)
+    );
+
     sortStars(input, maxSymbol, type, sortedParts[STAR]);
     induceMinuses(input, type, sortedParts);
     inducePluses(input, type, sortedParts);
-    vector <unsigned int> answer;
-    for (unsigned int i = 1; i < maxSymbol; ++i) {
-        for (auto const &j: sortedParts[MINUS][i]) {
-            answer.push_back(j);
-        }
-        for (unsigned int j = sortedParts[PLUS][i].size() - 1; j != UINT_MAX; --j) {
-            answer.push_back(sortedParts[PLUS][i][j]);
-        }
-    }
-    return answer;
+
+
+    return restoreAnswer(maxSymbol, sortedParts);
+}
+
+vector <unsigned int> inducedSorting (vector <unsigned int> input) {
+    return inducedSortingChangable(input);
 }

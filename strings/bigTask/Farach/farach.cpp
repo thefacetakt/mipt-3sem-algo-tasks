@@ -773,18 +773,3 @@ void randGen(int length, int alph, int tests) {
         buildSuffixTree(res);
     }
 }
-
-int main() {
-    // randGen(10, 3, 100);
-    std::string s;
-    std::cin >> s;
-
-    unsigned int n = s.size();
-    vector <int> input(n);
-    for (unsigned int i = 0; i < n; ++i) {
-        input[i] = s[i] - 'a';
-    }
-    SuffixTree tree = buildSuffixTree(input);
-    std::cout << countSubstrings(tree, tree.root) << std::endl;
-    return 0;
-}
