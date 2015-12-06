@@ -13,6 +13,9 @@
 #include <string>
 #include "EulerPair.hpp"
 #include "LCA.hpp"
+#include "SuffixTree.hpp"
+#include "usefulStructures.hpp"
+#include "farach.hpp"
 
 
 using std::vector;
@@ -22,193 +25,6 @@ using std::min;
 using std::pair;
 using std::function;
 using std::swap;
-
-class SuffixTree {
-public:
-    class Node {
-        vector <unsigned int> children_;
-    public:
-        int parent;
-        unsigned int indexOfParentEdge;
-        unsigned int depth;
-        int leaf;
-
-        Node(int parent=-1,
-            unsigned int indexOfParentEdge=0, unsigned int depth=0, int leaf=-1
-        ) :
-            parent(parent),
-            indexOfParentEdge(indexOfParentEdge),
-            depth(depth),
-            leaf(leaf) {
-        }
-
-        unsigned int lengthOfEdge(const SuffixTree &tree,
-            unsigned int parentDepth=-1
-        ) const {
-            if (parentDepth != -1) {
-                return depth - parentDepth;
-            }
-            if (parent != -1) {
-                return depth - tree[parent].depth;
-            }
-            return depth;
-        }
-
-        unsigned int lastIndex(const SuffixTree &tree,
-            unsigned int parentDepth=-1
-        ) const {
-            return indexOfParentEdge + lengthOfEdge(tree, parentDepth);
-        }
-
-        unsigned int getFirstHiddenInfo() const {
-            return indexOfParentEdge;
-        }
-
-        unsigned int getSecondHiddenInfo() const {
-            return -(leaf + 2);
-        }
-
-        unsigned int getHiddenInfo(unsigned int i) const {
-            #ifdef _GLIBCXX_DEBUG
-                assert(0 <= i && i <= 1);
-            #endif
-            return (i == 0 ? getFirstHiddenInfo() : getSecondHiddenInfo());
-        }
-
-        void setHiddenInfo(unsigned int first, unsigned int second) {
-            indexOfParentEdge = first;
-            leaf = -2 - second;
-        }
-
-        unsigned int &operator[](size_t i) {
-            return children_[i];
-        }
-
-        const unsigned int &operator[](size_t i) const {
-            return children_[i];
-        }
-
-        void push_back(unsigned int child) {
-            children_.push_back(child);
-        }
-
-        size_t size() const {
-            return children_.size();
-        }
-
-        void clear() {
-            children_.clear();
-        }
-
-        vector<unsigned int>::iterator begin() {
-            return children_.begin();
-        }
-
-        vector<unsigned int>::iterator end() {
-            return children_.end();
-        }
-
-        vector<unsigned int>::const_iterator begin() const {
-            return children_.cbegin();
-        }
-
-        vector<unsigned int>::const_iterator end() const {
-            return children_.cend();
-        }
-
-        void renewChildren(const vector <unsigned int> &newChildren) {
-            children_ = newChildren;
-        }
-
-        void deleteFirstChild() {
-            children_ = vector <unsigned int> (begin() + 1, end());
-        }
-
-        void resize(size_t size) {
-            children_.resize(size);
-        }
-    };
-
-private:
-    vector <Node> nodes_;
-    vector <unsigned int> pull_;
-
-public:
-    const unsigned int root = 0;
-
-    Node &operator[](size_t i) {
-        return nodes_[i];
-    }
-
-    const Node &operator[](size_t i) const {
-        return nodes_[i];
-    }
-
-    SuffixTree() {
-        nodes_.resize(1);
-    }
-
-    inline void checkNode(const Node &node) const {
-        #ifdef _DEBUG
-            assert(node.parent == -1 || nodes_[node.parent].depth < node.depth);
-        #endif
-    }
-
-    void deleteUselessNode(unsigned int v, unsigned int inParentIndex,
-        int leaf
-     ) {
-        unsigned int parent = nodes_[v].parent;
-        nodes_[parent][inParentIndex] = -1;
-
-        #ifdef _DEBUG
-            assert(nodes_[v].size() <= 1);
-        #endif
-
-        for (auto const &u: nodes_[v]) {
-            nodes_[parent][inParentIndex] = u;
-            nodes_[u].parent = parent;
-            nodes_[u].indexOfParentEdge = leaf + nodes_[parent].depth;
-            checkNode(nodes_[u]);
-        }
-        nodes_[v].clear();
-        pull_.push_back(v);
-    }
-
-    unsigned int newNode(
-        int parent=-1,
-        unsigned int indexOfParentEdge=0,
-        unsigned int depth=0,
-        int leaf=-1
-    ) {
-        Node resultNode = Node(parent, indexOfParentEdge, depth, leaf);
-        if (pull_.size()) {
-            unsigned int returnValue = pull_.back();
-            pull_.pop_back();
-            nodes_[returnValue] = resultNode;
-            return returnValue;
-        }
-        nodes_.push_back(resultNode);
-        return nodes_.size() - 1;
-    }
-
-    unsigned int splitEdge(unsigned int parent, unsigned int childIndex,
-        unsigned int length
-    ) {
-        unsigned int child = nodes_[parent][childIndex];
-        unsigned int newNodeIndex = newNode(parent,
-            nodes_[child].indexOfParentEdge, nodes_[parent].depth + length);
-        Node &newNode = nodes_[newNodeIndex];
-        nodes_[child].indexOfParentEdge = newNode.lastIndex(*this);
-        nodes_[child].parent = newNodeIndex;
-        newNode.push_back(child);
-        nodes_[parent][childIndex] = newNodeIndex;
-
-        checkNode(nodes_[newNodeIndex]);
-
-        return newNodeIndex;
-    }
-};
-
 
 void buildEulerDfs(unsigned int v, unsigned int &count, unsigned int depth,
     const SuffixTree &tree, vector <EulerPair> &euler,
@@ -231,47 +47,6 @@ void buildEuler(const SuffixTree &tree, vector <EulerPair> &euler,
     buildEulerDfs(tree.root, count, 0, tree, euler, realNode);
 }
 
-enum ELeafGetterMode {
-    NUMBER,
-    LEAF,
-};
-
-class RandomLCPGetter {
-private:
-    const SuffixTree &tree;
-    vector <EulerPair> euler;
-    vector <unsigned int> realNode;
-    vector <unsigned int> irrealNode;
-    LCA lcaGetter;
-public:
-    template<class LeafGetter>
-    RandomLCPGetter(const SuffixTree &tree, unsigned int inputLength,
-        LeafGetter leafGetter
-    ) :
-        tree(tree)
-    {
-        buildEuler(tree, euler, realNode);
-        irrealNode.resize(inputLength + 1);
-        for (unsigned int i = 0; i < realNode.size(); ++i) {
-            for (int j = 0; j < leafGetter(NUMBER); ++j) {
-                int leaf = leafGetter(LEAF, realNode[i], j);
-                    // tree[realNode[i]].leaf;
-                if (leaf != -1) {
-                    irrealNode[leaf] = i;
-                }
-            }
-        }
-        lcaGetter = LCA(euler);
-    }
-
-    unsigned int lca(unsigned int i, unsigned int j) const {
-        return realNode[lcaGetter.lca(irrealNode[i], irrealNode[j])];
-    }
-    unsigned int lcp(unsigned int i, unsigned int j) const {
-        return tree[lca(i, j)].depth;
-    }
-};
-
 RandomLCPGetter usualGetter(const SuffixTree &tree, unsigned int inputLength) {
     return RandomLCPGetter(tree, inputLength,
         [&tree](ELeafGetterMode mode,
@@ -284,40 +59,6 @@ RandomLCPGetter usualGetter(const SuffixTree &tree, unsigned int inputLength) {
         }
     );
 }
-
-SuffixTree buildTempSuffixTree(const vector <int> &);
-
-template<class T, class Compare>
-vector <T> radixSort(const vector <T> &input, Compare comp) {
-    int maxElement = 0;
-    for (auto const &element: input) {
-        maxElement = max(maxElement, static_cast<int>(comp(element) + 1));
-    }
-    vector <unsigned int> count(maxElement + 1);
-    for (auto const &element: input) {
-        ++count[comp(element) + 1];
-    }
-    for (unsigned int i = 1; i <= maxElement; ++i) {
-        count[i] += count[i - 1];
-    }
-    vector <T> result(input.size());
-    for (unsigned int i = input.size() - 1; i != UINT_MAX; --i) {
-        const T &element = input[i];
-        result[--count[comp(element) + 1]] = element;
-    }
-    return result;
-}
-
-struct NumberedPair {
-    pair<int, int> elements;
-    unsigned int number;
-    NumberedPair(int first, int second, unsigned int number) :
-        elements(first, second),
-        number(number) {
-    }
-    NumberedPair() {
-    }
-};
 
 int firstElementOfNumberedPair(const NumberedPair &x) {
    return x.elements.first;
@@ -626,17 +367,13 @@ SuffixTree buildOddSuffixTree(const SuffixTree &even,
     return buildSuffixTreeFromSA(oddSuffix, oddLcp, input.size());
 }
 
-inline void copyNodeExceptParentAndChildren(const SuffixTree::Node &from,
+void copyNodeExceptParentAndChildren(const SuffixTree::Node &from,
     SuffixTree::Node &to
 ) {
     to.depth = from.depth;
     to.indexOfParentEdge = from.indexOfParentEdge;
     to.leaf = from.leaf;
 }
-
-void copySubTree(const SuffixTree &from, SuffixTree &to,
-    unsigned int fromStart, unsigned int toStart
-);
 
 unsigned int appendCopyNode(const SuffixTree &from, SuffixTree &to,
     unsigned int toStart, unsigned int u
@@ -654,73 +391,6 @@ void copySubTree(const SuffixTree &from, SuffixTree &to,
     for (auto const &u: from[fromStart]) {
         appendCopyNode(from, to, toStart, u);
     }
-}
-
-template<class T>
-class IndexedPair {
-    T first;
-    T second;
-public:
-    IndexedPair(T first, T second) : first(first), second(second) {
-    }
-
-    T &operator[](size_t i) {
-        #ifdef _GLIBCXX_DEBUG
-            assert(0 <= i && i <= 1);
-        #endif
-        return (i == 0 ? first : second);
-    }
-
-    const T &operator[](size_t i) const {
-        #ifdef _GLIBCXX_DEBUG
-            assert(0 <= i && i <= 1);
-        #endif
-        return (i == 0 ? first : second);
-    }
-};
-
-
-struct MergeNodesStruct {
-    SuffixTree &tree;
-    const vector <int> &input;
-    unsigned int v;
-    unsigned int childIndex;
-    unsigned int child;
-    unsigned int length;
-    int symbol;
-
-    MergeNodesStruct(SuffixTree &tree,
-        unsigned int v, const vector <int> &input
-    ) : tree(tree), v(v), input(input) {
-        childIndex = 0;
-    }
-
-    bool end() const {
-        return childIndex == tree[v].size();
-    }
-
-    void evaluate() {
-        child = tree[v][childIndex];
-        symbol = input[tree[child].indexOfParentEdge];
-    }
-
-    void split(unsigned int splitLength) {
-        child = tree.splitEdge(v, childIndex, splitLength);
-    }
-};
-
-template<class Struct, class ActionType>
-void doSomething(IndexedPair<Struct> &merging, ActionType action) {
-    action(merging[0]);
-    action(merging[1]);
-}
-
-template<class Struct, class Compare>
-Struct &minimal(IndexedPair<Struct> &merging, Compare comp) {
-    if (comp(merging[0]) < comp(merging[1])) {
-        return merging[0];
-    }
-    return merging[1];
 }
 
 void mergeNodes(unsigned int first, unsigned int second, unsigned int to,
@@ -924,35 +594,10 @@ vector <unsigned int> computeTrueLength(const SuffixTree &merged,
     return output;
 }
 
-struct MergeTreesStruct {
-    const SuffixTree &tree;
-    vector <unsigned int> suffix;
-    unsigned int number;
-    unsigned int info;
-
-    MergeTreesStruct(const SuffixTree &tree, unsigned int number) :
-        tree(tree), number(number)
-    {
-        suffix = findSuffixes(tree);
-    }
-
-    void evaluate(const SuffixTree &merged, unsigned int v) {
-        info = merged[v].getHiddenInfo(number);
-    }
-};
-
-template<class T>
-T *xorPointers(T *a, T *b, T *c) {
-    if (a == b) {
-        return c;
-    }
-    return b;
-}
-
 void correctMerge(unsigned int v, unsigned int parentsPlace, SuffixTree &merged,
     IndexedPair<MergeTreesStruct> &updatedTrees,
     const vector <unsigned int> &trueLength, const vector <int> &input,
-    unsigned int copyTree=2
+    unsigned int copyTree
 ) {
     if (merged[v].leaf <= -2) {
         doSomething(updatedTrees, [&merged, &v] (MergeTreesStruct &tree) {
@@ -1006,7 +651,7 @@ void correctMerge(unsigned int v, unsigned int parentsPlace, SuffixTree &merged,
     }
 }
 
-inline void checkTree(const char *message, const SuffixTree &tree,
+void checkTree(const char *message, const SuffixTree &tree,
     const vector <int> &input
 ) {
     #ifdef _DEBUG
