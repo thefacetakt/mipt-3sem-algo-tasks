@@ -578,7 +578,18 @@ public:
     }
 };
 
-
+RandomLCPGetter usualGetter(const SuffixTree &tree, unsigned int inputLength) {
+    return RandomLCPGetter(tree, inputLength,
+        [&tree](ELeafGetterMode mode,
+            unsigned int vertice=-1, unsigned int number=-1
+        ) -> int {
+            if (mode == NUMBER) {
+                return 1;
+            }
+            return tree[vertice].leaf;
+        }
+    );
+}
 
 
 SuffixTree buildTempSuffixTree(const vector <int> &);
@@ -915,16 +926,7 @@ SuffixTree buildOddSuffixTree(const SuffixTree &even,
 ) {
     vector <unsigned int> evenSuffix;
     buildSuffixArray(even, evenSuffix);
-    RandomLCPGetter evenGetter(even, input.size(),
-        [&even](ELeafGetterMode mode,
-            unsigned int vertice=-1, unsigned int number=-1
-        ) -> int {
-                if (mode == NUMBER) {
-                    return 1;
-                }
-                return even[vertice].leaf;
-            }
-    );
+    RandomLCPGetter evenGetter = usualGetter(even, input.size());
 
     vector <unsigned int> oddSuffix = buildOddSuffixArray(evenSuffix, input);
     vector <unsigned int> oddLcp = buildOddLcp(evenGetter, oddSuffix, input);
