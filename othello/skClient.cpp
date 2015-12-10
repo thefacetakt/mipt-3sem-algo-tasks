@@ -146,7 +146,7 @@ void fprint(std::FILE * stream, const char* format, ...) {
     va_list args;
     va_start(args, format);
     vfprintf(stream, format, args);
-    fflush(stdout);
+    fflush(stream);
     va_end(args);
 }
 
@@ -154,7 +154,7 @@ void eprint(const char* format, ...) {
     va_list args;
     va_start(args, format);
     vfprintf(stderr, format, args);
-    fflush(stdout);
+    fflush(stderr);
     va_end(args);
 }
 
@@ -203,7 +203,8 @@ inline void printAvailible() {
 }
 
 void printMove(int x, int y) {
-    print("move %c %d\n", char(x + 'a'), y);
+    eprint("my move %c %d\n", char(x - 1 + 'a'), y);
+    print("move %c %d\n", char(x - 1 + 'a'), y);
 }
 
 int findMoveInDirection(int x0, int y0, int dx, int dy, int color,
@@ -324,6 +325,7 @@ void init() {
 int main() {
     char inputBuffer[MAX_BUFFER];
     scanf("init %s", inputBuffer);
+    eprint("INITED\n");
     if (inputBuffer[0] == 'w') {
         myColor = 0;
     } else {
@@ -333,11 +335,14 @@ int main() {
     while (true) {
         scanf("%s", inputBuffer);
         if (inputBuffer[0] == 't') {
+            eprint("t\n");
             turn();
         } else if (inputBuffer[0] == 'm') {
-            int x, y;
-            scanf("%d %d", &x, &y);
-            makeMove(x, y, 1 - myColor);
+            char c;
+            int y;
+            scanf(" %c %d", &c, &y);
+            eprint("m\n");
+            makeMove(c - 'a' + 1, y, 1 - myColor);
         } else {
             return 0;
         }
