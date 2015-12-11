@@ -1,4 +1,3 @@
-#define DEBUG
 #define _CRT_SECURE_NO_WARNINGS
 
 #include <cstdio>
@@ -19,13 +18,13 @@ using std::abs;
 clock_t start;
 
 bool isTL() {
-    return (((float)(clock() - start) / CLOCKS_PER_SEC) > 2);
+    return (((float)(clock() - start) / CLOCKS_PER_SEC) > 2.8);
 }
 
 const unsigned int MAXN = 65536;
 const unsigned int MAXN_1 = 65535;
 const unsigned int LOG_MAXN = 16;
-const int MAX_DEPTH = 2;
+const int MAX_DEPTH = 4;
 
 const int WHITE = 0;
 const int BLACK = 1;
