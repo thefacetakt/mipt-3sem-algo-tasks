@@ -257,7 +257,7 @@ int minMaxFunction(int color) {
         }
         return 0;
     }
-    int a = 8, b = 12;
+    int a = 7, b = 13;
     if (moves > 40) {
         swap(a, b);
     }
