@@ -493,7 +493,7 @@ void findLcaSuffix(unsigned int v, const SuffixTree &merged,
     }
     if (merged[v].leaf >= 0) {
         output[v][merged[v].leaf % 2] = merged[v].leaf;
-    } else if (merged[v].leaf <= -2) {
+    } else if (merged[v].isHiddenInfo()) {
         for (unsigned int i = 0; i < 2; ++i) {
             output[v][i] = trees[i][merged[v].getHiddenInfo(i)].leaf;
         }
@@ -519,13 +519,14 @@ void findLcaSuffix(unsigned int v, const SuffixTree &merged,
         }
     }
     #ifdef _DEBUG
-        assert(merged[v].leaf > -2
+        assert(!merged[v].isHiddenInfo()
             || (output[v][0] != -1 && output[v][1] != -1));
     #endif
 }
 
 void trueLengthFillDfs(unsigned int v, const SuffixTree &merged,
-    const RandomLCPGetter &getter, IndexedPair<unsigned int> suffix, unsigned int length,
+    const RandomLCPGetter &getter, IndexedPair<unsigned int> suffix,
+    unsigned int length,
     vector <unsigned int> &output
 ) {
     while (output.size() <= v) {
@@ -562,7 +563,7 @@ vector <unsigned int> computeTrueLength(const SuffixTree &merged,
             if (mode == NUMBER) {
                 return 2;
             }
-            if (merged[vertice].leaf > -2) {
+            if (!merged[vertice].isHiddenInfo()) {
                 return merged[vertice].leaf;
             }
             return trees[number][merged[vertice].getHiddenInfo(number)].leaf;
@@ -578,7 +579,8 @@ vector <unsigned int> computeTrueLength(const SuffixTree &merged,
     while (toVisit.size()) {
         unsigned int v = toVisit.back();
         toVisit.pop_back();
-        if (merged[v].leaf <= -2 && (output.size() <= v || output[v] == -1)) {
+        if (merged[v].isHiddenInfo()
+            && (output.size() <= v || output[v] == -1)) {
             trueLengthFillDfs(v, merged, getter, lcaSuffixes[v],
                 inputLength, output
             );
@@ -595,7 +597,7 @@ void correctMerge(unsigned int v, unsigned int parentsPlace, SuffixTree &merged,
     const vector <unsigned int> &trueLength, const vector <int> &input,
     unsigned int copyTree
 ) {
-    if (merged[v].leaf <= -2) {
+    if (merged[v].isHiddenInfo()) {
         doSomething(updatedTrees, [&merged, &v] (MergeTreesStruct &tree) {
             tree.evaluate(merged, v);
         });

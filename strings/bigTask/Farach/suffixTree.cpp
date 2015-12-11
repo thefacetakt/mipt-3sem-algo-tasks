@@ -99,6 +99,10 @@ void SuffixTree::Node::resize(size_t size) {
     children_.resize(size);
 }
 
+bool SuffixTree::Node::isHiddenInfo() const {
+    return leaf <= -2;
+}
+
 SuffixTree::Node &SuffixTree::operator[](size_t i) {
     return nodes_[i];
 }

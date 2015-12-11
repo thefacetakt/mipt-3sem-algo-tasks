@@ -58,6 +58,8 @@ public:
         void deleteFirstChild();
 
         void resize(size_t size);
+
+        bool isHiddenInfo() const;
     };
 
 private:
