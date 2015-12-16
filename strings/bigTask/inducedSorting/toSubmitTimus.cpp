@@ -1,378 +1,208 @@
-#include <climits>
-
-#ifndef _USEFUL_STRUCTURES_IS
-#define _USEFUL_STRUCTURES_IS
-
-#include <vector>
-
-using std::vector;
-
-enum Type {
-    MINUS,
-    PLUS,
-    STAR,
-    TOTAL
-};
-
-struct Node {
-    vector <unsigned int> children;
-    vector <unsigned int> term;
-};
-
-struct StringSortingItem {
-    unsigned int position;
-    unsigned int string;
-
-    StringSortingItem();
-
-    StringSortingItem(unsigned int position, unsigned int string);
-};
-
-#endif
-
-
-
-StringSortingItem::StringSortingItem() {
-}
-
-StringSortingItem::StringSortingItem(unsigned int position, unsigned int string)
-    : position(position), string(string) {
-}
-
-#ifndef _INDUCED_SORTING
-#define _INDUCED_SORTING
-
-#include <vector>
-#include <algorithm>
-
-
-using std::vector;
-using std::max;
-
-template<class T, class Compare>
-vector <T> radixSort(const vector <T> &input, Compare comp) {
-    unsigned int maxElement = 0;
-    for (auto const &element: input) {
-        maxElement = max(maxElement, static_cast<unsigned int>(comp(element)));
-    }
-    vector <unsigned int> count(maxElement + 1);
-    for (auto const &element: input) {
-        ++count[comp(element)];
-    }
-    for (unsigned int i = 1; i <= maxElement; ++i) {
-        count[i] += count[i - 1];
-    }
-    vector <T> result(input.size());
-    for (unsigned int i = input.size() - 1; i != UINT_MAX; --i) {
-        const T &element = input[i];
-        result[--count[comp(element)]] = element;
-    }
-    return result;
-}
-
-vector <unsigned int> finalDfs(const vector <vector <unsigned int> > &strings,
-    const vector<Node> &trie);
-
-void addNode(const StringSortingItem &item, vector <Node> &trie,
-    vector<unsigned int> &position,
-    const vector <vector <unsigned int> > &strings);
-
-vector <unsigned int> sortOfString(
-    const vector <vector <unsigned int> > &strings);
-
-vector <Type> detectTypes(const vector <unsigned int> &input);
-
-void sortStars(const vector <unsigned int> &input,
-    unsigned int maxSymbol,
-    const vector <Type> &type,
-    vector <vector <unsigned int> > &out);
-
-void induceMinuses(const vector <unsigned int> &input,
-    const vector <Type> &type,
-    vector <vector <vector <unsigned int> > > &sortedParts);
-
-void inducePluses(const vector <unsigned int> &input, const vector<Type> &type,
-    vector <vector <vector <unsigned int> > > &sortedParts);
-
-unsigned int defineMaxSymbolAndAddZeroSymbol(vector <unsigned int> &input);
-
-vector <unsigned int> restoreAnswer(unsigned int maxSymbol,
-    vector <vector <vector <unsigned int> > > &sortedParts);
-
-
-vector <unsigned int> inducedSortingChangable(vector <unsigned int> &input);
-
-vector <unsigned int> inducedSorting (vector <unsigned int> input);
-
-#endif
-
 #include <cstdio>
-#include <iostream>
 #include <vector>
 #include <algorithm>
 #include <climits>
-#include <utility>
 
 using std::vector;
-using std::pair;
+using std::min;
 using std::max;
 
-vector <unsigned int> finalDfs(const vector <vector <unsigned int> > &strings,
-    const vector<Node> &trie
-) {
-    vector <unsigned int> ans(strings.size());
-    vector <unsigned int> tempAns;
-    vector <unsigned int> stack;
-    stack.push_back(0);
-    unsigned int currentNumber = 0;
-    while (stack.size()) {
-        unsigned int v = stack.back();
-        stack.pop_back();
-        for (auto const &i: trie[v].term) {
-            ans[i] = currentNumber;
-            tempAns.push_back(i);
-        }
-        if (trie[v].term.size()) {
-            ++currentNumber;
-        }
-        for (unsigned int i = trie[v].children.size() - 1; i != UINT_MAX; --i) {
-            stack.push_back(trie[v].children[i]);
-        }
+enum EType {
+    L,
+    S,
+    LMS
+};
 
-    }
-    return ans;
-}
+vector <EType> detectTypes(const vector <unsigned int> &input,
+    vector <unsigned int> &lmsPositions) {
 
-void addNode(const StringSortingItem &item, vector <Node> &trie,
-    vector<unsigned int> &position,
-    const vector <vector <unsigned int> > &strings
-) {
-    Node &node = trie[position[item.string]];
-    if (!node.children.size()
-            || strings[trie[node.children.back()].term[0]][item.position]
-            != strings[item.string][item.position]
-        ) {
-        unsigned int newNodeIndex = trie.size();
-        trie.push_back(Node());
-        trie[position[item.string]].children.push_back(newNodeIndex);
-        trie.back().term.push_back(item.string);
-        position[item.string] = newNodeIndex;
-    } else {
-        position[item.string] = node.children.back();
-        trie[node.children.back()].term.push_back(item.string);
-    }
-}
+    vector <EType> type(input.size());
 
-vector <unsigned int> sortOfString(
-    const vector <vector <unsigned int> > &strings
-) {
-    vector <StringSortingItem> temp;
-    for (unsigned int i = 0; i < strings.size(); ++i) {
-        for (unsigned int j = 0; j < strings[i].size(); ++j) {
-            temp.push_back(StringSortingItem(j, i));
-        }
-    }
-
-    temp = radixSort(radixSort(temp,
-        [&strings] (const StringSortingItem &item) -> unsigned int {
-            return strings[item.string][item.position];
-        }), [] (const StringSortingItem &item) -> unsigned int {
-            return item.position;
-        }
-    );
-
-    vector <Node> trie(1);
-    vector <unsigned int> position(strings.size());
-    for (unsigned int i = 0; i < strings.size(); ++i) {
-        position[i] = 0;
-        trie[0].term.push_back(i);
-    }
-
-    for (auto const &item: temp) {
-        addNode(item, trie, position, strings);
-    }
-
-    for (auto &node: trie) {
-        node.term.clear();
-    }
-    for (unsigned int i = 0; i < position.size(); ++i) {
-        trie[position[i]].term.push_back(i);
-    }
-
-    return finalDfs(strings, trie);
-}
-
-vector <Type> detectTypes(const vector <unsigned int> &input) {
-    vector <Type> type(input.size());
-    for (unsigned int i = input.size() - 1; i != UINT_MAX; --i) {
-        if (i + 1 == input.size()) {
-            type[i] = MINUS;
-        } else if (type[i + 1] == MINUS) {
-            if (input[i] >= input[i + 1]) {
-                type[i] = MINUS;
-            } else {
-                type[i] = PLUS;
-            }
+    type.back() = S;
+    for (unsigned int i = input.size() - 2; i != UINT_MAX; --i) {
+        if (input[i] < input[i + 1]) {
+            type[i] = S;
+        } else if (input[i] > input[i + 1]) {
+            type[i] = L;
         } else {
-            if (input[i] <= input[i + 1]) {
-                type[i] = PLUS;
-            } else {
-                type[i] = MINUS;
-                type[i + 1] = STAR;
-            }
+            type[i] = type[i + 1];
+        }
+        if (type[i] == L && type[i + 1] == S) {
+            type[i + 1] = LMS;
+            lmsPositions.push_back(i + 1);
         }
     }
+    type.back() = LMS;
+    reverse(lmsPositions.begin(), lmsPositions.end());
     return type;
 }
 
-void sortStars(const vector <unsigned int> &input,
-    unsigned int maxSymbol,
-    const vector <Type> &type,
-    vector <vector <unsigned int> > &out
-) {
-    vector <vector <unsigned int> > starStrings;
-    vector <unsigned int> currentString;
-    for (unsigned int i = 0; i < input.size(); ++i) {
-        if (i + 1 == input.size() || type[i] == STAR) {
-            if (currentString.size()) {
-                currentString.push_back(input[i]);
-                currentString.push_back(maxSymbol);
-                starStrings.push_back(currentString);
-                currentString.clear();
+vector <unsigned int> generateReducedAlphabet(
+    const vector <unsigned int> &input,
+    const vector <EType> &type,
+    const vector <unsigned int> &suffixArray) {
+
+    vector<unsigned int> newAlphabet(input.size(), -1);
+
+    unsigned int lastLms = -1;
+    unsigned int lmsCount = 0;
+    for (const auto &index: suffixArray) {
+        if (type[index] == LMS) {
+            ++lmsCount;
+            if (lastLms == -1) {
+                newAlphabet[index] = 0;
+            } else {
+                unsigned int i;
+                for (i = 1; type[lastLms + i] != LMS
+                    && input[lastLms + i] == input[index + i]; ++i) {
+                }
+                newAlphabet[index] = newAlphabet[lastLms];
+                if (input[lastLms] != input[index]
+                    || (type[lastLms + i] != LMS || type[index + i] != LMS)) {
+                    ++newAlphabet[index];
+                }
             }
-            currentString.push_back(input[i]);
-        } else {
-            if (currentString.size()) {
-                currentString.push_back(input[i]);
-            }
+            lastLms = index;
         }
     }
-    vector <unsigned int> newSymbols = sortOfString(starStrings);
-    vector <unsigned int> newString;
-
-    vector <unsigned int> starPositions;
-    for (unsigned int i = 0; i < input.size(); ++i) {
-        if (type[i] == STAR) {
-            newString.push_back(newSymbols[starPositions.size()]);
-            starPositions.push_back(i);
-        }
-    }
-
-    vector <unsigned int> sortedStars = inducedSortingChangable(newString);
-    for (unsigned int i = 0; i < sortedStars.size(); ++i) {
-        out[input[starPositions[sortedStars[i]]]].push_back(
-            starPositions[sortedStars[i]]
-        );
-    }
+    return newAlphabet;
 }
 
-void induceMinuses(const vector <unsigned int> &input,
-    const vector <Type> &type,
-    vector <vector <vector <unsigned int> > > &sortedParts
-) {
-    sortedParts[MINUS][0].push_back(input.size() - 1);
-    vector <unsigned int> ptr(sortedParts[MINUS].size(), 0);
-    for (unsigned int i = 0; i < ptr.size(); ++i) {
-        while (ptr[i] != sortedParts[MINUS][i].size()) {
-            unsigned int index = sortedParts[MINUS][i][ptr[i]];
-            if (index > 0 && type[index - 1] == MINUS) {
-                sortedParts[MINUS][input[index - 1]].push_back(index - 1);
-            }
-            ++ptr[i];
-        }
-        for (unsigned int j = 0; j  < sortedParts[STAR][i].size(); ++j) {
-            sortedParts[MINUS][input[sortedParts[STAR][i][j] - 1]].push_back(sortedParts[STAR][i][j] - 1);
-        }
+vector <unsigned int> generateReducedString(
+    const vector <unsigned int> &newAlphabet,
+    const vector <unsigned int> &lmsPositions) {
+
+    vector <unsigned int> newInput;
+    newInput.reserve(lmsPositions.size());
+    for (unsigned int index: lmsPositions) {
+        newInput.push_back(newAlphabet[index]);
     }
+    return newInput;
 }
 
-void inducePluses(const vector <unsigned int> &input, const vector<Type> &type,
-    vector <vector <vector <unsigned int> > > &sortedParts
-) {
-    vector <unsigned int> ptr(sortedParts[PLUS].size(), 0);
-    for (unsigned int i = ptr.size() - 1; i != UINT_MAX; --i) {
-        while (ptr[i] != sortedParts[PLUS][i].size()) {
-            unsigned int index = sortedParts[PLUS][i][ptr[i]];
-            if (index > 0 && type[index - 1] != MINUS) {
-                sortedParts[PLUS][input[index - 1]].push_back(index - 1);
-            }
-            ++ptr[i];
+template<typename T>
+void print(const vector <T> &x) {
+    for (auto const &i: x) {
+        printf("%d ", i);
+    }
+    printf("\n");
+}
+
+void induce(const vector <unsigned int> &input,
+    const vector <EType> &type,
+    vector <unsigned int> &suffixArray,
+    vector <unsigned int> tail,
+    unsigned int alphabetSize) {
+
+    vector <unsigned int> head(alphabetSize, 0);
+
+    for (unsigned int i = 1; i < tail.size(); ++i) {
+        head[i] = tail[i - 1];
+    }
+
+    for (auto const &index: suffixArray) {
+        if (index != -1 && index != 0 &&
+            type[index - 1] == L) {
+            suffixArray[head[input[index - 1]]++] = index - 1;
         }
-        for (unsigned int j = sortedParts[MINUS][i].size() - 1;
-            j != UINT_MAX; --j
-        ) {
-            int index = sortedParts[MINUS][i][j];
-            if (index > 0 && type[index - 1] != MINUS) {
-                sortedParts[PLUS][input[index - 1]].push_back(index - 1);
-            }
+    }
+
+
+    for (unsigned int i = suffixArray.size() -1; i != UINT_MAX; --i) {
+        unsigned int index = suffixArray[i];
+        if (index != -1 && index != 0 &&
+            (type[index - 1] == S || type[index - 1] == LMS)) {
+            suffixArray[--tail[input[index - 1]]] = index - 1;
         }
     }
 }
 
-unsigned int defineMaxSymbolAndAddZeroSymbol(vector <unsigned int> &input) {
-    unsigned int maxSymbol = 0;
-    for (int i = 0; i < input.size(); ++i) {
-        input[i] += 1;
-        maxSymbol = max(maxSymbol, input[i] + 1);
+vector <unsigned int> countTail(const vector <unsigned int> &input,
+    unsigned int alphabetSize) {
+
+    vector <unsigned int> tail(alphabetSize, 0);
+    for (const auto &c: input) {
+        ++tail[c];
     }
-    input.push_back(0);
-    return maxSymbol;
+    for (unsigned int i = 1; i < alphabetSize; ++i) {
+        tail[i] += tail[i - 1];
+    }
+
+    return tail;
 }
 
-vector <unsigned int> restoreAnswer(unsigned int maxSymbol,
-    vector <vector <vector <unsigned int> > > &sortedParts
-) {
-    vector <unsigned int> answer;
-    for (unsigned int i = 1; i < maxSymbol; ++i) {
-        for (auto const &j: sortedParts[MINUS][i]) {
-            answer.push_back(j);
-        }
-        for (unsigned int j = sortedParts[PLUS][i].size() - 1;
-            j != UINT_MAX; --j
-        ) {
-            answer.push_back(sortedParts[PLUS][i][j]);
-        }
-    }
-    return answer;
-}
 
-vector <unsigned int> inducedSortingChangable(vector <unsigned int> &input) {
-    if (input.size() == 0) {
-        return vector <unsigned int> ();
-    }
+vector <unsigned int> inducedSortingPrepared(const vector <unsigned int> &input,
+    int alphabetSize) {
+    // for (int i = 0; i < input.size(); ++i) {
+    //     if (input[i] != 0) {
+    //         printf("%c", input[i] + 'a' - 1);
+    //     }
+    // }
+    // printf("\n");
     if (input.size() == 1) {
-        vector <unsigned int> ans(1, 0);
-        return ans;
+        return vector <unsigned int> (1, 0);
     }
 
-    unsigned int maxSymbol = defineMaxSymbolAndAddZeroSymbol(input);
-
-    vector <Type> type = detectTypes(input);
-    vector <vector <vector <unsigned int> > > sortedParts(
-        static_cast<unsigned int>(TOTAL),
-        vector<vector<unsigned int> > (maxSymbol)
-    );
-
-    sortStars(input, maxSymbol, type, sortedParts[STAR]);
-    induceMinuses(input, type, sortedParts);
-    inducePluses(input, type, sortedParts);
+    vector <unsigned int> lmsPositions;
+    vector <EType> type = detectTypes(input, lmsPositions);
 
 
-    return restoreAnswer(maxSymbol, sortedParts);
+    vector <unsigned int> tail = countTail(input, alphabetSize);
+    vector <unsigned int> tailBackUp = tail;
+
+    vector <unsigned int> suffixArray(input.size(), -1);
+
+    for (const auto &index: lmsPositions) {
+        suffixArray[--tail[input[index]]] = index;
+    }
+
+    induce(input, type, suffixArray, tailBackUp, alphabetSize);
+
+    vector <unsigned int> reducedAlphabet
+        = generateReducedAlphabet(input, type, suffixArray);
+
+    vector <unsigned int> reducedString
+        = generateReducedString(reducedAlphabet, lmsPositions);
+
+    vector <unsigned int> reducedSuffixArray
+        = inducedSortingPrepared(reducedString, reducedAlphabet.size());
+
+    tail = tailBackUp;
+    suffixArray.assign(input.size(), -1);
+
+    for (unsigned int i = reducedSuffixArray.size() - 1; i != UINT_MAX; --i) {
+        unsigned int index = reducedSuffixArray[i];
+        suffixArray[--tail[input[lmsPositions[index]]]] = lmsPositions[index];
+    }
+
+    induce(input, type, suffixArray, tailBackUp, alphabetSize);
+
+    return suffixArray;
 }
 
-vector <unsigned int> inducedSorting (vector <unsigned int> input) {
-    return inducedSortingChangable(input);
+vector <unsigned int> inducedSorting(vector <unsigned int> input) {
+    unsigned int alphabetSize = 0;
+    for (auto &c: input) {
+        ++c;
+        alphabetSize = max(c, alphabetSize);
+    }
+    ++alphabetSize;
+    input.push_back(0);
+
+    vector <unsigned int> answer = inducedSortingPrepared(input, alphabetSize);
+
+    return vector <unsigned int> (answer.begin() + 1, answer.end());
 }
 
-#include <algorithm>
-
-using std::max;
-using std::min;
+#include <string>
+#include <iostream>
+using std::string;
+using std::cin;
+using std::cout;
 
 vector <unsigned int> lcpArray(const vector <unsigned int> &input,
-    const vector <unsigned int> &suffixArray
-) {
+    const vector <unsigned int> &suffixArray) {
     vector <unsigned int> antiArray(suffixArray.size());
     for (unsigned int i = 0; i < suffixArray.size(); ++i) {
         antiArray[suffixArray[i]] = i;
@@ -397,13 +227,20 @@ vector <unsigned int> lcpArray(const vector <unsigned int> &input,
 
 unsigned long long countSubstrings(const vector <unsigned int> &lcp,
     const vector <unsigned int> &suffixArray,
-    unsigned int length
-) {
+    unsigned int length) {
     unsigned long long answer = length  - suffixArray[0];
     for (unsigned int i = 1; i < length; ++i) {
         answer += (length - suffixArray[i] - lcp[i - 1]);
     }
     return answer;
+}
+
+std::string gen(int n) {
+    std::string res;
+    for (int i = 0; i < n; ++i) {
+        res += (rand() % 26 + 'a');
+    }
+    return res;
 }
 
 unsigned long long countSubstringsComplete(const vector <unsigned int> &input) {
@@ -416,16 +253,14 @@ unsigned long long countSubstringsComplete(const vector <unsigned int> &input) {
 void relax(unsigned int &maximum, unsigned int k, unsigned int j,
     unsigned int i, unsigned int &currentLcp,
     const vector <unsigned int> &suffix,
-    const vector <unsigned int> &lcp
-) {
+    const vector <unsigned int> &lcp) {
     if (i < suffix[j] && suffix[j] < i + k) {
         maximum = max(maximum, min(i + k - suffix[j], currentLcp));
     }
 }
 
 unsigned int maxStart(unsigned int i, unsigned int k,
-    const vector <unsigned int> &lcp, const vector <unsigned int> &suffix
-) {
+    const vector <unsigned int> &lcp, const vector <unsigned int> &suffix) {
     unsigned int place = 0;
     for (place = 0; place < suffix.size(); ++place) {
         if (suffix[place] == i) {
@@ -456,29 +291,14 @@ int main() {
 
     unsigned int n = s.size();
     s += s;
-    vector <unsigned int> input(k);
+    vector <unsigned int> input(2 * n);
 
-    for (unsigned int i = 0; i < k; ++i) {
+    for (unsigned int i = 0; i < 2 * n; ++i) {
         input[i] = s[i] - 'a';
     }
-    unsigned long long start = countSubstringsComplete(input);
-    printf("%llu ", start);
-    input.resize(2 * n);
-
-    for (unsigned int i = k; i < 2 * n; ++i) {
-        input[i] = s[i % n] - 'a';
-    }
-
-    vector <unsigned int> reverseInput(input.rbegin(), input.rend());
-    vector <unsigned int> suffixArray = inducedSorting(input),
-        reverseArray = inducedSorting(reverseInput);
-    vector <unsigned int> lcp = lcpArray(input, suffixArray),
-        reverseLcp = lcpArray(reverseInput, reverseArray);
-
-    for (unsigned int i = 1; i < n; ++i) {
-        start -= maxStart(i - 1, k, lcp, suffixArray);
-        start += maxStart(2 * n - i - k, k, reverseLcp, reverseArray);
-        printf("%llu ", start);
+    for (int i = 0; i < n; ++i) {
+        printf("%llu ", countSubstringsComplete(
+            vector<unsigned int> (input.begin() + i, input.begin() + i + k)));
     }
     printf("\n");
 
