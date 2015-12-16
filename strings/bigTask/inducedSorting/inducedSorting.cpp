@@ -98,7 +98,7 @@ void induce(const vector <unsigned int> &input,
     }
 
 
-    for (int i = suffixArray.size() -1; i >= 0; --i) {
+    for (int i = suffixArray.size() - 1; i >= 0; --i) {
         unsigned int index = suffixArray[i];
         if (index != -1 && index != 0 &&
             (type[index - 1] == S || type[index - 1] == LMS)) {
