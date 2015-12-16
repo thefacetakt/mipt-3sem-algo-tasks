@@ -17,7 +17,7 @@ vector <EType> detectTypes(const vector <unsigned int> &input,
     vector <EType> type(input.size());
 
     type.back() = S;
-    for (unsigned int i = input.size() - 2; i != UINT_MAX; --i) {
+    for (int i = input.size() - 2; i >= 0; --i) {
         if (input[i] < input[i + 1]) {
             type[i] = S;
         } else if (input[i] > input[i + 1]) {
@@ -98,7 +98,7 @@ void induce(const vector <unsigned int> &input,
     }
 
 
-    for (unsigned int i = suffixArray.size() -1; i != UINT_MAX; --i) {
+    for (int i = suffixArray.size() -1; i >= 0; --i) {
         unsigned int index = suffixArray[i];
         if (index != -1 && index != 0 &&
             (type[index - 1] == S || type[index - 1] == LMS)) {
@@ -156,7 +156,7 @@ vector <unsigned int> inducedSortingPrepared(const vector <unsigned int> &input,
     tail = tailBackUp;
     suffixArray.assign(input.size(), -1);
 
-    for (unsigned int i = reducedSuffixArray.size() - 1; i != UINT_MAX; --i) {
+    for (int i = reducedSuffixArray.size() - 1; i >= 0; --i) {
         unsigned int index = reducedSuffixArray[i];
         suffixArray[--tail[input[lmsPositions[index]]]] = lmsPositions[index];
     }
